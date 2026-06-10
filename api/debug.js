@@ -6,15 +6,25 @@ module.exports = async (req, res) => {
   const key = process.env.SUPABASE_ANON_KEY || '';
   const svc = process.env.SUPABASE_SERVICE_KEY || '';
 
-  // Test connection
-  let testResult = null;
+  // Test with anon key
+  let testAnon = null;
   try {
     const client = createClient(url, key, { auth: { persistSession: false } });
-    const { data, error } = await client.from('portal_settings').select('id').limit(1);
-    testResult = error ? { error: error.message, code: error.code } : { ok: true, rows: data?.length };
-  } catch(e) {
-    testResult = { threw: e.message };
-  }
+    const { data, error } = await client.from('portal_players').insert({ username: 'debug_test_' + Date.now(), password_hash: 'x', full_name: 'test' }).select().single();
+    if (data) { await client.from('portal_players').delete().eq('id', data.id); }
+    testAnon = error ? { error: error.message } : { ok: true };
+  } catch(e) { testAnon = { threw: e.message }; }
+
+  // Test with service key
+  let testSvc = null;
+  try {
+    const client = createClient(url, svc, { auth: { persistSession: false } });
+    const { data, error } = await client.from('portal_players').insert({ username: 'debug_svc_' + Date.now(), password_hash: 'x', full_name: 'test' }).select().single();
+    if (data) { await client.from('portal_players').delete().eq('id', data.id); }
+    testSvc = error ? { error: error.message } : { ok: true };
+  } catch(e) { testSvc = { threw: e.message }; }
+
+  const testResult = { anon: testAnon, svc: testSvc };
 
   res.status(200).json({
     url_set: !!url,
