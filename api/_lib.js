@@ -2,16 +2,15 @@ const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 function db() {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  // Service role key bypasses RLS — safe for server-side only
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+  return createClient(process.env.SUPABASE_URL, key, {
+    auth: { persistSession: false }
+  });
 }
 
 async function dbAuthed() {
-  const client = db();
-  await client.auth.signInWithPassword({
-    email: process.env.SUPABASE_EMAIL,
-    password: process.env.SUPABASE_PASSWORD
-  });
-  return client;
+  return db();
 }
 
 function signToken(player) {
