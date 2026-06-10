@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Portal de Jugadores</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b1120; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  /* AUTH */
+  #auth-screen {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .auth-logo { width: 90px; height: 90px; border-radius: 50%; background: #1e293b; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 2.5rem; }
+  .auth-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; text-align: center; }
+  .auth-sub { color: #64748b; font-size: 0.9rem; margin-bottom: 32px; text-align: center; }
+  .auth-box { background: #1e293b; border-radius: 16px; padding: 28px; width: 100%; max-width: 380px; }
+  .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; background: #0b1120; border-radius: 10px; padding: 3px; }
+  .auth-tab { flex: 1; text-align: center; padding: 9px; border-radius: 8px; cursor: pointer; font-size: 0.88rem; color: #64748b; font-weight: 500; transition: all 0.2s; }
+  .auth-tab.active { background: #3b82f6; color: #fff; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px; }
+  .form-group input { width: 100%; background: #0b1120; border: 1px solid #334155; border-radius: 10px; color: #f1f5f9; padding: 12px 14px; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus { border-color: #3b82f6; }
+  .btn-primary { width: 100%; background: #3b82f6; border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 600; padding: 13px; cursor: pointer; transition: background 0.2s; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:disabled { background: #334155; cursor: not-allowed; }
+  .auth-error { background: #450a0a; border: 1px solid #7f1d1d; border-radius: 8px; color: #fca5a5; font-size: 0.84rem; padding: 10px 14px; margin-bottom: 16px; display: none; }
+
+  /* APP */
+  #app { display: none; min-height: 100vh; padding-bottom: 80px; }
+  .app-header { background: #1e293b; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 100; }
+  .app-logo { font-size: 1.2rem; font-weight: 700; }
+  .app-user { font-size: 0.82rem; color: #94a3b8; text-align: right; }
+  .app-user strong { display: block; color: #f1f5f9; font-size: 0.9rem; }
+
+  /* PAGES */
+  .page { display: none; padding: 20px; max-width: 600px; margin: 0 auto; }
+  .page.active { display: block; }
+  .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .page-title .back-btn { background: #1e293b; border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #f1f5f9; font-size: 1.1rem; }
+
+  /* HOME */
+  .greeting { margin-bottom: 20px; }
+  .greeting h2 { font-size: 1rem; color: #94a3b8; font-weight: 400; }
+  .greeting h1 { font-size: 1.5rem; font-weight: 700; }
+  .balance-card { background: linear-gradient(135deg, #1d4ed8, #3b82f6); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+  .balance-label { font-size: 0.82rem; color: rgba(255,255,255,0.7); margin-bottom: 6px; }
+  .balance-amount { font-size: 2.2rem; font-weight: 700; }
+  .balance-amount small { font-size: 1rem; font-weight: 400; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .action-card { background: #1e293b; border-radius: 14px; padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+  .action-card:hover { border-color: #334155; transform: translateY(-1px); }
+  .action-card .icon { font-size: 2rem; margin-bottom: 10px; }
+  .action-card .label { font-size: 0.88rem; font-weight: 600; }
+  .action-card.green { background: #052e16; }
+  .action-card.green .label { color: #4ade80; }
+  .action-card.red { background: #2d0a0a; }
+  .action-card.red .label { color: #f87171; }
+  .action-card.blue { background: #0c1a3a; }
+  .action-card.blue .label { color: #60a5fa; }
+  .action-card.orange { background: #1c0d00; }
+  .action-card.orange .label { color: #fb923c; }
+  .section-title { font-size: 0.9rem; font-weight: 600; color: #94a3b8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* TRANSACTIONS */
+  .tx-list { display: flex; flex-direction: column; gap: 10px; }
+  .tx-item { background: #1e293b; border-radius: 12px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .tx-type { font-weight: 600; font-size: 0.9rem; }
+  .tx-date { font-size: 0.75rem; color: #64748b; margin-top: 3px; }
+  .tx-amount { font-size: 1.05rem; font-weight: 700; text-align: right; }
+  .tx-amount.deposit { color: #4ade80; }
+  .tx-amount.withdrawal { color: #f87171; }
+  .tx-status { font-size: 0.72rem; margin-top: 3px; text-align: right; }
+  .badge { border-radius: 20px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600; display: inline-block; }
+  .badge.pending { background: #451a03; color: #fb923c; }
+  .badge.approved { background: #052e16; color: #4ade80; }
+  .badge.rejected { background: #2d0a0a; color: #f87171; }
+  .empty-state { text-align: center; padding: 40px 20px; color: #64748b; }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+  /* FORMS */
+  .card { background: #1e293b; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 0.82rem; color: #94a3b8; font-weight: 600; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { font-size: 0.82rem; color: #94a3b8; }
+  .info-value { font-size: 0.9rem; font-weight: 500; font-family: monospace; }
+  .copy-btn { background: #334155; border: none; border-radius: 6px; color: #94a3b8; font-size: 0.75rem; padding: 4px 10px; cursor: pointer; transition: all 0.15s; }
+  .copy-btn:hover { background: #3b82f6; color: #fff; }
+  .amount-input-wrap { position: relative; }
+  .amount-input-wrap .currency { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 0.95rem; }
+  .amount-input-wrap input { padding-left: 30px !important; }
+  .btn-success { width: 100%; background: #16a34a; border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 600; padding: 13px; cursor: pointer; transition: background 0.2s; margin-top: 4px; }
+  .btn-success:hover { background: #15803d; }
+  .btn-success:disabled { background: #334155; cursor: not-allowed; }
+  .btn-danger { width: 100%; background: #dc2626; border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 600; padding: 13px; cursor: pointer; transition: background 0.2s; margin-top: 4px; }
+  .btn-danger:hover { background: #b91c1c; }
+  .form-note { font-size: 0.8rem; color: #64748b; margin-top: 8px; text-align: center; }
+  .alert { border-radius: 10px; padding: 12px 16px; font-size: 0.85rem; margin-bottom: 16px; display: none; }
+  .alert.error { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; }
+  .alert.success { background: #052e16; border: 1px solid #14532d; color: #86efac; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #1e293b; border-top: 1px solid #334155; display: flex; z-index: 200; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 4px 12px; cursor: pointer; color: #64748b; font-size: 0.65rem; gap: 4px; transition: color 0.15s; border: none; background: none; }
+  .nav-item .nav-icon { font-size: 1.3rem; }
+  .nav-item.active { color: #3b82f6; }
+  .nav-item:hover { color: #94a3b8; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 10px 20px; font-size: 0.88rem; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .whatsapp-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: #16a34a; border: none; border-radius: 14px; color: #fff; font-size: 1rem; font-weight: 600; padding: 18px; width: 100%; cursor: pointer; margin-bottom: 12px; transition: background 0.2s; }
+  .whatsapp-btn:hover { background: #15803d; }
+  .whatsapp-btn .icon { font-size: 1.4rem; }
+  .casino-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: #1d4ed8; border: none; border-radius: 14px; color: #fff; font-size: 1rem; font-weight: 600; padding: 18px; width: 100%; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+  .casino-btn:hover { background: #1e40af; }
+
+  @media (max-width: 400px) {
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .balance-amount { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN / REGISTRO -->
+<div id="auth-screen">
+  <div class="auth-logo">🎰</div>
+  <div class="auth-title">Portal de Jugadores</div>
+  <div class="auth-sub">Ingresá o creá tu cuenta</div>
+  <div class="auth-box">
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Ingresar</div>
+      <div class="auth-tab" onclick="switchAuthTab('register')">Registrarse</div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="login-form">
+      <div class="auth-error" id="login-error"></div>
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="login-user" placeholder="Tu usuario" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="btn-primary" onclick="doLogin()" id="login-btn">Ingresar</button>
+    </div>
+
+    <!-- REGISTRO -->
+    <div id="register-form" style="display:none">
+      <div class="auth-error" id="register-error"></div>
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" id="reg-name" placeholder="Ej: Juan García" />
+      </div>
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="reg-user" placeholder="Elegí un usuario" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <input type="tel" id="reg-wa" placeholder="Ej: 1123456789" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+      </div>
+      <button class="btn-primary" onclick="doRegister()" id="register-btn">Crear cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="app-header">
+    <div class="app-logo">🎰 Portal</div>
+    <div class="app-user">
+      <strong id="header-name"></strong>
+      <span id="header-user"></span>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="page active" id="page-home">
+    <div class="greeting">
+      <h2>Hola,</h2>
+      <h1 id="greeting-name">Cargando...</h1>
+    </div>
+    <div class="balance-card">
+      <div class="balance-label">Saldo disponible</div>
+      <div class="balance-amount" id="balance-display"><small>$</small> 0</div>
+    </div>
+    <div class="grid-2">
+      <div class="action-card green" onclick="goPage('deposit')">
+        <div class="icon">💰</div>
+        <div class="label">Cargar saldo</div>
+      </div>
+      <div class="action-card red" onclick="goPage('withdraw')">
+        <div class="icon">💸</div>
+        <div class="label">Retirar saldo</div>
+      </div>
+      <div class="action-card blue" onclick="goPage('transactions')">
+        <div class="icon">📋</div>
+        <div class="label">Mis transacciones</div>
+      </div>
+      <div class="action-card orange" onclick="goPage('chat')">
+        <div class="icon">💬</div>
+        <div class="label">Chat / Soporte</div>
+      </div>
+    </div>
+    <div id="home-pending-wrap" style="display:none">
+      <div class="section-title">Solicitudes pendientes</div>
+      <div class="tx-list" id="home-pending-list"></div>
+    </div>
+  </div>
+
+  <!-- CARGAR SALDO -->
+  <div class="page" id="page-deposit">
+    <div class="page-title">
+      <button class="back-btn" onclick="goPage('home')">←</button>
+      Cargar saldo
+    </div>
+
+    <div class="card">
+      <div class="card-title">📤 Datos para transferir</div>
+      <div class="info-row">
+        <span class="info-label">Banco</span>
+        <span class="info-value" id="dep-bank-name">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">CBU</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="info-value" id="dep-cbu">—</span>
+          <button class="copy-btn" onclick="copyText('dep-cbu')">Copiar</button>
+        </div>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Alias</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="info-value" id="dep-alias">—</span>
+          <button class="copy-btn" onclick="copyText('dep-alias')">Copiar</button>
+        </div>
+      </div>
+      <div class="info-row">
+        <span class="info-label">A nombre de</span>
+        <span class="info-value" id="dep-acct-name">—</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 Solicitar carga</div>
+      <div class="alert error" id="dep-error"></div>
+      <div class="alert success" id="dep-success"></div>
+      <div class="form-group">
+        <label>Monto a cargar</label>
+        <div class="amount-input-wrap">
+          <span class="currency">$</span>
+          <input type="number" id="dep-amount" placeholder="0" min="0" step="100" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notas (opcional)</label>
+        <input type="text" id="dep-notes" placeholder="Ej: N° de comprobante" />
+      </div>
+      <button class="btn-success" onclick="requestDeposit()" id="dep-btn">✓ Solicitar carga</button>
+      <p class="form-note">Realizá la transferencia primero y luego completá esta solicitud.</p>
+    </div>
+  </div>
+
+  <!-- RETIRAR SALDO -->
+  <div class="page" id="page-withdraw">
+    <div class="page-title">
+      <button class="back-btn" onclick="goPage('home')">←</button>
+      Retirar saldo
+    </div>
+
+    <div class="card" id="withdraw-bank-info">
+      <div class="card-title">🏦 Tu cuenta bancaria de retiro</div>
+      <div id="withdraw-bank-display">
+        <p style="color:#94a3b8;font-size:0.88rem">No tenés cuenta bancaria cargada. <span style="color:#3b82f6;cursor:pointer" onclick="goPage('bank')">Agregar ahora →</span></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💸 Solicitar retiro</div>
+      <div class="alert error" id="wit-error"></div>
+      <div class="alert success" id="wit-success"></div>
+      <div class="form-group">
+        <label>Monto a retirar</label>
+        <div class="amount-input-wrap">
+          <span class="currency">$</span>
+          <input type="number" id="wit-amount" placeholder="0" min="0" step="100" />
+        </div>
+        <p class="form-note" id="wit-balance-note" style="text-align:left;margin-top:6px"></p>
+      </div>
+      <div class="form-group">
+        <label>Notas (opcional)</label>
+        <input type="text" id="wit-notes" placeholder="Aclaraciones" />
+      </div>
+      <button class="btn-danger" onclick="requestWithdraw()" id="wit-btn">✓ Solicitar retiro</button>
+    </div>
+  </div>
+
+  <!-- TRANSACCIONES -->
+  <div class="page" id="page-transactions">
+    <div class="page-title">
+      <button class="back-btn" onclick="goPage('home')">←</button>
+      Mis transacciones
+    </div>
+    <div id="tx-loading" style="text-align:center;padding:40px;color:#64748b">Cargando...</div>
+    <div class="tx-list" id="tx-list" style="display:none"></div>
+    <div class="empty-state" id="tx-empty" style="display:none">
+      <div class="icon">📋</div>
+      <p>No hay transacciones aún.</p>
+    </div>
+  </div>
+
+  <!-- CUENTA BANCARIA -->
+  <div class="page" id="page-bank">
+    <div class="page-title">
+      <button class="back-btn" onclick="goPage('home')">←</button>
+      Mi cuenta bancaria
+    </div>
+
+    <div class="card" id="bank-current-wrap" style="display:none">
+      <div class="card-title">✅ Cuenta guardada</div>
+      <div id="bank-current-display"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏦 Guardar / actualizar cuenta</div>
+      <div class="alert error" id="bank-error"></div>
+      <div class="alert success" id="bank-success"></div>
+      <div class="form-group">
+        <label>Banco</label>
+        <input type="text" id="bank-name" placeholder="Ej: Mercado Pago, Brubank, Galicia" />
+      </div>
+      <div class="form-group">
+        <label>CBU</label>
+        <input type="text" id="bank-cbu" placeholder="22 dígitos" maxlength="22" />
+      </div>
+      <div class="form-group">
+        <label>Alias</label>
+        <input type="text" id="bank-alias" placeholder="Ej: juan.garcia.mp" />
+      </div>
+      <div class="form-group">
+        <label>Titular de la cuenta</label>
+        <input type="text" id="bank-acct-name" placeholder="Nombre completo del titular" />
+      </div>
+      <button class="btn-primary" onclick="saveBank()" id="bank-btn">Guardar cuenta</button>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="page" id="page-chat">
+    <div class="page-title">
+      <button class="back-btn" onclick="goPage('home')">←</button>
+      Chat y soporte
+    </div>
+    <div class="card">
+      <p style="color:#94a3b8;font-size:0.9rem;margin-bottom:20px;line-height:1.6">
+        ¿Necesitás ayuda o querés hablar con un operador? Escribinos directo por WhatsApp.
+      </p>
+      <button class="whatsapp-btn" onclick="openWhatsApp()">
+        <span class="icon">📱</span> Abrir WhatsApp
+      </button>
+    </div>
+    <div class="card" id="casino-card" style="display:none">
+      <div class="card-title">🎰 Ir al casino</div>
+      <a id="casino-link" class="casino-btn" href="#" target="_blank">
+        🎰 Abrir el casino
+      </a>
+    </div>
+  </div>
+
+  <!-- PERFIL -->
+  <div class="page" id="page-profile">
+    <div class="page-title">
+      <button class="back-btn" onclick="goPage('home')">←</button>
+      Mi perfil
+    </div>
+
+    <div class="card">
+      <div class="card-title">👤 Datos personales</div>
+      <div class="alert error" id="prof-error"></div>
+      <div class="alert success" id="prof-success"></div>
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="prof-user-display" disabled style="opacity:0.5" />
+      </div>
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" id="prof-name" />
+      </div>
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <input type="tel" id="prof-wa" />
+      </div>
+      <button class="btn-primary" onclick="saveProfile()" style="margin-bottom:0" id="prof-btn">Guardar cambios</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔒 Cambiar contraseña</div>
+      <div class="alert error" id="pw-error"></div>
+      <div class="alert success" id="pw-success"></div>
+      <div class="form-group">
+        <label>Contraseña actual</label>
+        <input type="password" id="pw-current" placeholder="••••••••" />
+      </div>
+      <div class="form-group">
+        <label>Nueva contraseña</label>
+        <input type="password" id="pw-new" placeholder="Mínimo 6 caracteres" />
+      </div>
+      <button class="btn-primary" onclick="savePassword()" id="pw-btn">Cambiar contraseña</button>
+    </div>
+
+    <div style="text-align:center;margin-top:8px">
+      <button onclick="doLogout()" style="background:none;border:none;color:#ef4444;font-size:0.88rem;cursor:pointer;padding:10px">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-home" onclick="goPage('home')">
+      <span class="nav-icon">🏠</span>Inicio
+    </button>
+    <button class="nav-item" id="nav-transactions" onclick="goPage('transactions')">
+      <span class="nav-icon">📋</span>Historial
+    </button>
+    <button class="nav-item" id="nav-bank" onclick="goPage('bank')">
+      <span class="nav-icon">🏦</span>Mi banco
+    </button>
+    <button class="nav-item" id="nav-chat" onclick="goPage('chat')">
+      <span class="nav-icon">💬</span>Chat
+    </button>
+    <button class="nav-item" id="nav-profile" onclick="goPage('profile')">
+      <span class="nav-icon">👤</span>Perfil
+    </button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let token = localStorage.getItem('portal_token');
+let currentPlayer = null;
+let currentSettings = null;
+let currentBank = null;
+let currentPage = 'home';
+
+// ─── AUTH ───────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (i===0) === (tab==='login')));
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+}
+
+async function doLogin() {
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  if (!username || !password) { showAuthError('login', 'Completá todos los campos'); return; }
+  btn.disabled = true; btn.textContent = 'Ingresando...';
+  try {
+    const r = await fetch('/api/player/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username, password}) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    token = j.token;
+    localStorage.setItem('portal_token', token);
+    currentPlayer = j.player;
+    await loadMeData();
+    showApp();
+  } catch(e) {
+    showAuthError('login', e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Ingresar'; }
+}
+
+async function doRegister() {
+  const btn = document.getElementById('register-btn');
+  btn.disabled = true; btn.textContent = 'Creando cuenta...';
+  try {
+    const r = await fetch('/api/player/register', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('reg-user').value.trim(),
+        password: document.getElementById('reg-pass').value,
+        full_name: document.getElementById('reg-name').value.trim(),
+        whatsapp: document.getElementById('reg-wa').value.trim()
+      })
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    token = j.token;
+    localStorage.setItem('portal_token', token);
+    currentPlayer = j.player;
+    await loadMeData();
+    showApp();
+  } catch(e) {
+    showAuthError('register', e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Crear cuenta'; }
+}
+
+function showAuthError(form, msg) {
+  const el = document.getElementById(form + '-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function doLogout() {
+  localStorage.removeItem('portal_token');
+  token = null; currentPlayer = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+// ─── APP INIT ────────────────────────────────────────────
+async function loadMeData() {
+  const r = await authFetch('/api/player/me');
+  const j = await r.json();
+  if (j.error) { doLogout(); return; }
+  currentPlayer = j.player;
+  currentSettings = j.settings;
+  currentBank = j.bank;
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  renderHome();
+  populateDeposit();
+  populateWithdraw();
+  populateBank();
+  populateProfile();
+}
+
+async function init() {
+  if (!token) return;
+  try {
+    await loadMeData();
+    if (currentPlayer) showApp();
+    else { localStorage.removeItem('portal_token'); }
+  } catch { localStorage.removeItem('portal_token'); }
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────
+function goPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + (page === 'deposit' || page === 'withdraw' ? page : page)).classList.add('active');
+  const navId = 'nav-' + ({'home':'home','deposit':'home','withdraw':'home','transactions':'transactions','bank':'bank','chat':'chat','profile':'profile'}[page] || page);
+  const navEl = document.getElementById(navId);
+  if (navEl) navEl.classList.add('active');
+  currentPage = page;
+  if (page === 'transactions') loadTransactions();
+  if (page === 'withdraw') populateWithdraw();
+}
+
+// ─── HOME ────────────────────────────────────────────────
+function renderHome() {
+  if (!currentPlayer) return;
+  document.getElementById('header-name').textContent = currentPlayer.full_name || currentPlayer.username;
+  document.getElementById('header-user').textContent = '@' + currentPlayer.username;
+  document.getElementById('greeting-name').textContent = currentPlayer.full_name || currentPlayer.username;
+  document.getElementById('balance-display').innerHTML = '<small>$</small> ' + formatMoney(currentPlayer.balance || 0);
+  loadPendingHome();
+}
+
+async function loadPendingHome() {
+  try {
+    const r = await authFetch('/api/player/transactions');
+    const j = await r.json();
+    const pending = (j.data || []).filter(t => t.status === 'pending');
+    const wrap = document.getElementById('home-pending-wrap');
+    const list = document.getElementById('home-pending-list');
+    if (!pending.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    list.innerHTML = pending.map(renderTxItem).join('');
+  } catch {}
+}
+
+// ─── DEPOSIT ─────────────────────────────────────────────
+function populateDeposit() {
+  const s = currentSettings;
+  document.getElementById('dep-bank-name').textContent = s?.bank_name || '—';
+  document.getElementById('dep-cbu').textContent = s?.bank_cbu || '—';
+  document.getElementById('dep-alias').textContent = s?.bank_alias || '—';
+  document.getElementById('dep-acct-name').textContent = s?.bank_account_name || '—';
+}
+
+async function requestDeposit() {
+  const btn = document.getElementById('dep-btn');
+  const amount = document.getElementById('dep-amount').value;
+  const notes = document.getElementById('dep-notes').value.trim();
+  showAlert('dep', null);
+  if (!amount || Number(amount) <= 0) { showAlert('dep', 'error', 'Ingresá un monto'); return; }
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const r = await authFetch('/api/player/deposit', { method:'POST', body: JSON.stringify({amount: Number(amount), notes}) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    showAlert('dep', 'success', '✅ Solicitud enviada. Un operador la aprobará pronto.');
+    document.getElementById('dep-amount').value = '';
+    document.getElementById('dep-notes').value = '';
+  } catch(e) {
+    showAlert('dep', 'error', e.message);
+  } finally { btn.disabled = false; btn.textContent = '✓ Solicitar carga'; }
+}
+
+// ─── WITHDRAW ────────────────────────────────────────────
+function populateWithdraw() {
+  const b = currentBank;
+  const display = document.getElementById('withdraw-bank-display');
+  if (b) {
+    display.innerHTML = `
+      <div class="info-row"><span class="info-label">Banco</span><span class="info-value">${esc(b.bank_name||'—')}</span></div>
+      <div class="info-row"><span class="info-label">CBU</span><span class="info-value">${esc(b.cbu||'—')}</span></div>
+      <div class="info-row"><span class="info-label">Alias</span><span class="info-value">${esc(b.alias||'—')}</span></div>
+      <div class="info-row"><span class="info-label">Titular</span><span class="info-value">${esc(b.account_name||'—')}</span></div>`;
+  } else {
+    display.innerHTML = '<p style="color:#94a3b8;font-size:0.88rem">No tenés cuenta bancaria cargada. <span style="color:#3b82f6;cursor:pointer" onclick="goPage(\'bank\')">Agregar ahora →</span></p>';
+  }
+  const note = document.getElementById('wit-balance-note');
+  if (note) note.textContent = `Saldo disponible: $${formatMoney(currentPlayer?.balance || 0)}`;
+}
+
+async function requestWithdraw() {
+  const btn = document.getElementById('wit-btn');
+  const amount = document.getElementById('wit-amount').value;
+  const notes = document.getElementById('wit-notes').value.trim();
+  showAlert('wit', null);
+  if (!amount || Number(amount) <= 0) { showAlert('wit', 'error', 'Ingresá un monto'); return; }
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const r = await authFetch('/api/player/withdraw', { method:'POST', body: JSON.stringify({amount: Number(amount), notes}) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    showAlert('wit', 'success', '✅ Solicitud enviada. Un operador la procesará pronto.');
+    document.getElementById('wit-amount').value = '';
+    await loadMeData(); populateWithdraw(); renderHome();
+  } catch(e) {
+    showAlert('wit', 'error', e.message);
+  } finally { btn.disabled = false; btn.textContent = '✓ Solicitar retiro'; }
+}
+
+// ─── TRANSACTIONS ─────────────────────────────────────────
+async function loadTransactions() {
+  document.getElementById('tx-loading').style.display = 'block';
+  document.getElementById('tx-list').style.display = 'none';
+  document.getElementById('tx-empty').style.display = 'none';
+  try {
+    const r = await authFetch('/api/player/transactions');
+    const j = await r.json();
+    document.getElementById('tx-loading').style.display = 'none';
+    const list = j.data || [];
+    if (!list.length) { document.getElementById('tx-empty').style.display = 'block'; return; }
+    const el = document.getElementById('tx-list');
+    el.innerHTML = list.map(renderTxItem).join('');
+    el.style.display = 'flex';
+  } catch(e) {
+    document.getElementById('tx-loading').textContent = 'Error al cargar.';
+  }
+}
+
+function renderTxItem(t) {
+  const isDeposit = t.type === 'deposit';
+  const sign = isDeposit ? '+' : '-';
+  const typeLabel = isDeposit ? '💰 Carga de saldo' : '💸 Retiro de saldo';
+  const statusLabels = { pending:'⏳ Pendiente', approved:'✅ Aprobado', rejected:'❌ Rechazado' };
+  const date = new Date(t.created_at).toLocaleString('es-AR', { dateStyle:'short', timeStyle:'short' });
+  return `<div class="tx-item">
+    <div>
+      <div class="tx-type">${typeLabel}</div>
+      <div class="tx-date">${date}${t.notes ? ' · ' + esc(t.notes) : ''}</div>
+      ${t.operator_notes ? `<div class="tx-date" style="color:#fb923c">Nota: ${esc(t.operator_notes)}</div>` : ''}
+    </div>
+    <div>
+      <div class="tx-amount ${t.type}">${sign}$${formatMoney(t.amount)}</div>
+      <div class="tx-status"><span class="badge ${t.status}">${statusLabels[t.status]||t.status}</span></div>
+    </div>
+  </div>`;
+}
+
+// ─── BANK ────────────────────────────────────────────────
+function populateBank() {
+  const b = currentBank;
+  const wrap = document.getElementById('bank-current-wrap');
+  if (b) {
+    wrap.style.display = 'block';
+    document.getElementById('bank-current-display').innerHTML = `
+      <div class="info-row"><span class="info-label">Banco</span><span class="info-value">${esc(b.bank_name||'—')}</span></div>
+      <div class="info-row"><span class="info-label">CBU</span><span class="info-value">${esc(b.cbu||'—')}</span></div>
+      <div class="info-row"><span class="info-label">Alias</span><span class="info-value">${esc(b.alias||'—')}</span></div>
+      <div class="info-row"><span class="info-label">Titular</span><span class="info-value">${esc(b.account_name||'—')}</span></div>`;
+    document.getElementById('bank-name').value = b.bank_name || '';
+    document.getElementById('bank-cbu').value = b.cbu || '';
+    document.getElementById('bank-alias').value = b.alias || '';
+    document.getElementById('bank-acct-name').value = b.account_name || '';
+  } else { wrap.style.display = 'none'; }
+}
+
+async function saveBank() {
+  const btn = document.getElementById('bank-btn');
+  showAlert('bank', null);
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    const r = await authFetch('/api/player/bank', {
+      method:'PUT', body: JSON.stringify({
+        bank_name: document.getElementById('bank-name').value.trim(),
+        cbu: document.getElementById('bank-cbu').value.trim(),
+        alias: document.getElementById('bank-alias').value.trim(),
+        account_name: document.getElementById('bank-acct-name').value.trim()
+      })
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    currentBank = j.bank;
+    populateBank(); populateWithdraw();
+    showAlert('bank', 'success', '✅ Cuenta bancaria guardada');
+  } catch(e) {
+    showAlert('bank', 'error', e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Guardar cuenta'; }
+}
+
+// ─── CHAT ────────────────────────────────────────────────
+function openWhatsApp() {
+  const wa = currentSettings?.whatsapp_number;
+  if (!wa) { showToast('❌ No hay número configurado'); return; }
+  const num = wa.replace(/\D/g, '');
+  const msg = encodeURIComponent(`Hola! Soy ${currentPlayer?.full_name || currentPlayer?.username} (usuario: ${currentPlayer?.username})`);
+  window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
+}
+
+function loadChatPage() {
+  const casinoCard = document.getElementById('casino-card');
+  const casinoLink = document.getElementById('casino-link');
+  if (currentSettings?.casino_url) {
+    casinoCard.style.display = 'block';
+    casinoLink.href = currentSettings.casino_url;
+  }
+}
+
+// ─── PROFILE ─────────────────────────────────────────────
+function populateProfile() {
+  if (!currentPlayer) return;
+  document.getElementById('prof-user-display').value = currentPlayer.username;
+  document.getElementById('prof-name').value = currentPlayer.full_name || '';
+  document.getElementById('prof-wa').value = currentPlayer.whatsapp || '';
+}
+
+async function saveProfile() {
+  const btn = document.getElementById('prof-btn');
+  showAlert('prof', null);
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    const r = await authFetch('/api/player/profile', {
+      method:'PUT', body: JSON.stringify({
+        full_name: document.getElementById('prof-name').value.trim(),
+        whatsapp: document.getElementById('prof-wa').value.trim()
+      })
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    currentPlayer.full_name = document.getElementById('prof-name').value.trim();
+    renderHome();
+    showAlert('prof', 'success', '✅ Perfil actualizado');
+  } catch(e) {
+    showAlert('prof', 'error', e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+}
+
+async function savePassword() {
+  const btn = document.getElementById('pw-btn');
+  showAlert('pw', null);
+  btn.disabled = true; btn.textContent = 'Cambiando...';
+  try {
+    const r = await authFetch('/api/player/profile', {
+      method:'PUT', body: JSON.stringify({
+        current_password: document.getElementById('pw-current').value,
+        new_password: document.getElementById('pw-new').value
+      })
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value = '';
+    showAlert('pw', 'success', '✅ Contraseña actualizada');
+  } catch(e) {
+    showAlert('pw', 'error', e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Cambiar contraseña'; }
+}
+
+// ─── UTILS ───────────────────────────────────────────────
+function authFetch(url, opts = {}) {
+  return fetch(url, {
+    ...opts,
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token, ...(opts.headers||{}) }
+  });
+}
+
+function showAlert(prefix, type, msg) {
+  const errEl = document.getElementById(prefix + '-error');
+  const sucEl = document.getElementById(prefix + '-success');
+  if (errEl) errEl.style.display = 'none';
+  if (sucEl) sucEl.style.display = 'none';
+  if (!type) return;
+  const el = document.getElementById(prefix + '-' + type);
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+function formatMoney(n) {
+  return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function copyText(id) {
+  const el = document.getElementById(id);
+  const text = el?.textContent?.trim();
+  if (!text || text === '—') return;
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Copiado: ' + text)).catch(() => showToast('❌ No se pudo copiar'));
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// Iniciar
+init();
+</script>
+</body>
+</html>
