@@ -1,16 +1,16 @@
-const { dbAuthed, cors } = require('../_lib');
+const { db, cors } = require('../_lib');
 
 function isOperator(req) {
-  return req.headers['x-operator-key'] === process.env.OPERATOR_KEY;
+  const key = req.headers['x-operator-key'];
+  return key && key === process.env.OPERATOR_KEY;
 }
 
 module.exports = async (req, res) => {
-  cors(res);
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-operator-key');
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (!isOperator(req)) return res.status(403).json({ error: 'Acceso denegado' });
 
-  const client = await dbAuthed();
+  const client = db();
 
   if (req.method === 'GET') {
     const { data } = await client.from('portal_settings').select('*').limit(1).maybeSingle();

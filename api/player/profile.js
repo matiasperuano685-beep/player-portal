@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
-const { dbAuthed, verifyToken, cors } = require('../_lib');
+const { db, verifyToken, cors } = require('../_lib');
 
 module.exports = async (req, res) => {
-  cors(res);
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'PUT') return res.status(405).end();
 
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
 
   try {
     const { full_name, whatsapp, current_password, new_password } = req.body;
-    const client = await dbAuthed();
+    const client = db();
 
     const updates = {};
     if (full_name) updates.full_name = full_name.trim();
@@ -33,6 +33,6 @@ module.exports = async (req, res) => {
     if (error) throw error;
     res.status(200).json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error interno' });
   }
 };

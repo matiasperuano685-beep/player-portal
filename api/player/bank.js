@@ -1,7 +1,7 @@
-const { dbAuthed, verifyToken, cors } = require('../_lib');
+const { db, verifyToken, cors } = require('../_lib');
 
 module.exports = async (req, res) => {
-  cors(res);
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'PUT') return res.status(405).end();
 
@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     const { bank_name, cbu, alias, account_name } = req.body;
     if (!cbu && !alias) return res.status(400).json({ error: 'Ingresá al menos un CBU o alias' });
 
-    const client = await dbAuthed();
+    const client = db();
 
     await client.from('portal_bank_accounts').delete().eq('player_id', claim.id);
 
@@ -25,6 +25,6 @@ module.exports = async (req, res) => {
     if (error) throw error;
     res.status(200).json({ ok: true, bank: data });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error interno' });
   }
 };

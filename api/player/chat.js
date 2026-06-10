@@ -1,7 +1,7 @@
 const { db, verifyToken, cors } = require('../_lib');
 
 module.exports = async (req, res) => {
-  cors(res);
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const claim = verifyToken(req);

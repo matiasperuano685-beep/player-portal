@@ -1,12 +1,12 @@
 const { db, cors } = require('../_lib');
 
 function authOperator(req) {
-  return req.headers['x-operator-key'] === process.env.OPERATOR_KEY;
+  const key = req.headers['x-operator-key'];
+  return key && key === process.env.OPERATOR_KEY;
 }
 
 module.exports = async (req, res) => {
-  cors(res);
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-operator-key');
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (!authOperator(req)) return res.status(401).json({ error: 'No autorizado' });
 

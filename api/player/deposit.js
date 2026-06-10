@@ -1,7 +1,7 @@
-const { dbAuthed, verifyToken, cors } = require('../_lib');
+const { db, verifyToken, cors } = require('../_lib');
 
 module.exports = async (req, res) => {
-  cors(res);
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -12,11 +12,11 @@ module.exports = async (req, res) => {
     const { amount, notes } = req.body;
     if (!amount || isNaN(amount) || Number(amount) <= 0) return res.status(400).json({ error: 'Monto inválido' });
 
-    const client = await dbAuthed();
+    const client = db();
 
     const { data: settings } = await client.from('portal_settings').select('min_deposit').limit(1).maybeSingle();
     const minDeposit = settings?.min_deposit || 0;
-    if (Number(amount) < minDeposit) return res.status(400).json({ error: `El monto mínimo de carga es $${minDeposit.toLocaleString('es-AR')}` });
+    if (Number(amount) < minDeposit) return res.status(400).json({ error: `El monto mínimo de carga es $${Number(minDeposit).toLocaleString('es-AR')}` });
 
     const { data: hasPending } = await client
       .from('portal_transactions')
@@ -37,6 +37,6 @@ module.exports = async (req, res) => {
     if (error) throw error;
     res.status(201).json({ ok: true, transaction: data });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error interno' });
   }
 };

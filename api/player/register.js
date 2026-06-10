@@ -1,17 +1,21 @@
 const bcrypt = require('bcryptjs');
-const { dbAuthed, signToken, cors } = require('../_lib');
+const { db, signToken, cors, rateLimit } = require('../_lib');
 
 module.exports = async (req, res) => {
-  cors(res);
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
+
+  if (rateLimit(req, 5, 60000)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
+  }
 
   try {
     const { username, password, full_name, whatsapp } = req.body;
     if (!username || !password || !full_name) return res.status(400).json({ error: 'Faltan datos obligatorios' });
     if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
 
-    const client = await dbAuthed();
+    const client = db();
     const hash = await bcrypt.hash(password, 10);
 
     const { data: player, error } = await client
@@ -41,6 +45,6 @@ module.exports = async (req, res) => {
       }
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error interno' });
   }
 };

@@ -1,14 +1,14 @@
-const { dbAuthed, verifyToken, cors } = require('../_lib');
+const { db, verifyToken, cors } = require('../_lib');
 
 module.exports = async (req, res) => {
-  cors(res);
+  cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const claim = verifyToken(req);
   if (!claim) return res.status(401).json({ error: 'No autorizado' });
 
   try {
-    const client = await dbAuthed();
+    const client = db();
     const { data, error } = await client
       .from('portal_transactions')
       .select('id, type, amount, status, notes, operator_notes, created_at, updated_at')
@@ -19,6 +19,6 @@ module.exports = async (req, res) => {
     if (error) throw error;
     res.status(200).json({ data });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error interno' });
   }
 };
