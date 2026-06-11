@@ -5,7 +5,7 @@ module.exports = async (req, res) => {
   cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const slug = (req.query.path || []).join('/');
+  const slug = req.url.split('?')[0].replace(/^\/api\/player\/?/, '').replace(/\/$/, '');
 
   // ── LOGIN ──────────────────────────────────────────────
   if (slug === 'login') {

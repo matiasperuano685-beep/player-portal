@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (!isOperator(req)) return res.status(403).json({ error: 'Acceso denegado' });
 
-  const slug = (req.query.path || []).join('/');
+  const slug = req.url.split('?')[0].replace(/^\/api\/operator\/?/, '').replace(/\/$/, '');
   const client = db();
 
   // ── PLAYERS ───────────────────────────────────────────
