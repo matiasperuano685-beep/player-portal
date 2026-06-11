@@ -1044,6 +1044,8 @@ function openCasino() {
   if (!iframe.src || iframe.src === window.location.href) {
     iframe.src = CASINO_URL;
   }
+  const name = currentPlayer?.full_name || currentPlayer?.username || '';
+  document.getElementById('casino-username').textContent = name ? '👤 ' + name : '';
   document.getElementById('casino-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -1099,6 +1101,7 @@ if (isIOS) {
   <div id="casino-topbar">
     <button id="casino-back-btn" onclick="closeCasino()">← Volver</button>
     <span style="font-family:'Oswald',sans-serif;color:var(--gold);font-size:1rem;letter-spacing:0.05em">CAPIBET 🎰</span>
+    <span id="casino-username" style="margin-left:auto;font-size:0.82rem;color:var(--muted);background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:4px 12px"></span>
   </div>
   <iframe id="casino-iframe" src="" allowfullscreen allow="fullscreen"></iframe>
 </div>
