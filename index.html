@@ -205,6 +205,14 @@
         <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
       </div>
       <button class="btn-primary" onclick="doLogin()" id="login-btn">Ingresar</button>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+        <button onclick="contactoWA('olvide')" style="background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:0.85rem;padding:11px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          🔑 Olvidé mi contraseña
+        </button>
+        <button onclick="contactoWA('sinusuario')" style="background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:0.85rem;padding:11px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          ❓ No tengo usuario
+        </button>
+      </div>
     </div>
 
     <!-- REGISTRO -->
@@ -1034,6 +1042,27 @@ function showToast(msg) {
   el.textContent = msg; el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─── WHATSAPP ROTATIVO ───────────────────────────────────
+const WA_NUMBERS = [
+  '5491150460745','5491130636329','5491130373237','5491168523409',
+  '5491139015028','5491132062695','5491126186807','5491128738270'
+];
+
+function getNextWA() {
+  let idx = parseInt(localStorage.getItem('wa_idx') || '0');
+  const num = WA_NUMBERS[idx % WA_NUMBERS.length];
+  localStorage.setItem('wa_idx', (idx + 1) % WA_NUMBERS.length);
+  return num;
+}
+
+function contactoWA(tipo) {
+  const num = getNextWA();
+  const msg = tipo === 'olvide'
+    ? encodeURIComponent('Hola! Olvidé mi contraseña del portal CapiBet y necesito recuperarla.')
+    : encodeURIComponent('Hola! No tengo usuario en el portal CapiBet, quisiera crear una cuenta.');
+  window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
 }
 
 // ─── CASINO IFRAME ───────────────────────────────────────
