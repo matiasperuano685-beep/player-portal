@@ -320,6 +320,53 @@
   #chat-send-btn:disabled { background: var(--card2); color: var(--muted); cursor: not-allowed; box-shadow: none; }
   .chat-status { font-size: 0.75rem; color: var(--muted); text-align: center; padding: 6px 0; }
 
+  /* ─── CHAT CTA BANNER ───────────────────────────────── */
+  @keyframes pulse-ring {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    70%  { transform: scale(1.9); opacity: 0; }
+    100% { transform: scale(1.9); opacity: 0; }
+  }
+  @keyframes bounce-arrow {
+    0%, 100% { transform: translateX(0); }
+    50%       { transform: translateX(5px); }
+  }
+  .chat-cta-banner {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, #0d1a0a, #122012);
+    border: 1px solid rgba(74,222,128,0.35);
+    border-radius: 18px; padding: 16px 18px;
+    margin-bottom: 16px; cursor: pointer;
+    box-shadow: 0 6px 30px rgba(74,222,128,0.1), inset 0 1px 0 rgba(74,222,128,0.08);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .chat-cta-banner:active { transform: scale(0.98); }
+  .chat-cta-banner:hover { box-shadow: 0 8px 36px rgba(74,222,128,0.2); border-color: rgba(74,222,128,0.55); }
+  .chat-cta-banner::before {
+    content: ''; position: absolute; inset: 0; border-radius: 18px;
+    background: linear-gradient(105deg, transparent 30%, rgba(74,222,128,0.04) 50%, transparent 70%);
+    background-size: 600px 100%; animation: shimmer 3.5s infinite linear;
+    pointer-events: none;
+  }
+  .chat-cta-pulse {
+    position: absolute; left: 18px; width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(74,222,128,0.2);
+    animation: pulse-ring 2s ease-out infinite;
+    pointer-events: none;
+  }
+  .chat-cta-icon {
+    position: relative; z-index: 1;
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+    background: radial-gradient(circle, #1a4a1a, #0d2010);
+    border: 1px solid rgba(74,222,128,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.35rem;
+  }
+  .chat-cta-body { flex: 1; min-width: 0; }
+  .chat-cta-title { font-size: 0.95rem; font-weight: 700; color: #4ade80; letter-spacing: 0.01em; }
+  .chat-cta-sub { font-size: 0.75rem; color: rgba(74,222,128,0.6); margin-top: 2px; }
+  .chat-cta-arrow { font-size: 1.8rem; color: rgba(74,222,128,0.6); font-weight: 300; animation: bounce-arrow 1.4s ease-in-out infinite; }
+
   /* ─── WIN NOTIFICATION ───────────────────────────────── */
   #win-notification {
     position: fixed; bottom: 88px; left: 12px;
@@ -470,6 +517,17 @@
         <div class="label">Chat / Soporte</div>
       </div>
     </div>
+    <!-- CHAT CTA -->
+    <div class="chat-cta-banner" onclick="goPage('chat')">
+      <div class="chat-cta-pulse"></div>
+      <div class="chat-cta-icon">💬</div>
+      <div class="chat-cta-body">
+        <div class="chat-cta-title">¡Hablá con nosotros acá!</div>
+        <div class="chat-cta-sub">Soporte en vivo · Cargás, retirás y consultás</div>
+      </div>
+      <div class="chat-cta-arrow">›</div>
+    </div>
+
     <div id="home-pending-wrap" style="display:none">
       <div class="section-title">Solicitudes pendientes</div>
       <div class="tx-list" id="home-pending-list"></div>
