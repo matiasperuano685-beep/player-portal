@@ -1,4 +1,4 @@
-const CACHE = 'portal-v1';
+const CACHE = 'capibet-v3';
 const OFFLINE_ASSETS = ['/'];
 
 self.addEventListener('install', e => {
