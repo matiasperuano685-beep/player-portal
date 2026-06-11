@@ -1113,17 +1113,25 @@ const WIN_GAMES = [
 
 function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function rndAmount() {
-  const ranges = [[500,3000],[3000,15000],[15000,80000],[80000,250000]];
-  const weights = [50, 30, 15, 5];
+  const ranges = [
+    [5000,  19900,  42],
+    [20000, 74700,  28],
+    [75000, 249600, 16],
+    [250000,749300,  9],
+    [750000,1499000, 4],
+    [1500000,2000000,1],
+  ];
   let r = Math.random() * 100, cumul = 0;
-  for (let i = 0; i < weights.length; i++) {
-    cumul += weights[i];
+  for (const [min, max, w] of ranges) {
+    cumul += w;
     if (r < cumul) {
-      const [min, max] = ranges[i];
-      return Math.floor(Math.random() * (max - min) + min);
+      const base = Math.floor(Math.random() * (max - min) + min);
+      // Romper redondez: terminar en dígito impar aleatorio
+      const noise = [3,7,9,11,13,17,19,23,27,31,37,41,43,47,53,57,61,67,71,73,79,83,87,91,93,97];
+      return Math.floor(base / 10) * 10 + noise[Math.floor(Math.random() * noise.length)] % 10;
     }
   }
-  return 5000;
+  return 12473;
 }
 
 let winTimeout = null;
