@@ -177,6 +177,17 @@
   #chat-send-btn:hover { box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
   #chat-send-btn:disabled { background: var(--card2); color: var(--muted); cursor: not-allowed; box-shadow: none; }
   .chat-status { font-size: 0.78rem; color: var(--muted); text-align: center; padding: 6px 0; }
+
+  /* WIN NOTIFICATIONS */
+  #win-notification { position: fixed; bottom: 90px; left: 12px; right: 12px; max-width: 400px; margin: 0 auto; background: linear-gradient(135deg, #1a0a00, #2d1500); border: 1px solid var(--gold-dark); border-radius: 16px; padding: 14px 16px; z-index: 800; cursor: pointer; box-shadow: 0 8px 32px rgba(245,158,11,0.3); transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); display: flex; align-items: center; gap: 14px; }
+  #win-notification.show { transform: translateY(0); opacity: 1; }
+  .win-icon { font-size: 2.2rem; flex-shrink: 0; }
+  .win-body { flex: 1; min-width: 0; }
+  .win-title { font-size: 0.72rem; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+  .win-text { font-size: 0.9rem; color: var(--text); font-weight: 600; line-height: 1.3; }
+  .win-amount { font-family: 'Oswald', sans-serif; font-size: 1.3rem; color: var(--gold); font-weight: 700; }
+  .win-game { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .win-arrow { color: var(--gold); font-size: 1.2rem; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -612,6 +623,7 @@ function showApp() {
   populateWithdraw();
   populateBank();
   populateProfile();
+  startWinNotifications();
 }
 
 async function init() {
@@ -1077,6 +1089,68 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
 
+// ─── WIN NOTIFICATIONS ───────────────────────────────────
+const WIN_USERS = [
+  'Roberto3433','Maria_99','Juancho22','Sofi_bet','ElCapi77','Turco88',
+  'Pipe2024','Laucha_pro','Gabi333','Nico_win','Fede99','Pato22',
+  'Caro_luck','Titi888','Ruben55','Marta77','Diego_5','Claudia4',
+  'Beto_suerte','Anita22','Gordo_spin','Gise2024','Rulo55','Vicky_gana'
+];
+const WIN_GAMES = [
+  { name: 'Gates of Olympus', icon: '⚡' },
+  { name: 'Sweet Bonanza',    icon: '🍬' },
+  { name: 'Fortune Tiger',    icon: '🐯' },
+  { name: 'Book of Ra',       icon: '📖' },
+  { name: 'Big Bass Splash',  icon: '🎣' },
+  { name: 'Wolf Gold',        icon: '🐺' },
+  { name: 'Jewels',           icon: '💎' },
+  { name: 'Starlight Princess',icon:'⭐' },
+  { name: 'Aviator',          icon: '✈️' },
+  { name: 'Sugar Rush',       icon: '🍭' },
+  { name: 'Fruit Party',      icon: '🍇' },
+  { name: 'Starburst',        icon: '🌟' },
+];
+
+function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function rndAmount() {
+  const ranges = [[500,3000],[3000,15000],[15000,80000],[80000,250000]];
+  const weights = [50, 30, 15, 5];
+  let r = Math.random() * 100, cumul = 0;
+  for (let i = 0; i < weights.length; i++) {
+    cumul += weights[i];
+    if (r < cumul) {
+      const [min, max] = ranges[i];
+      return Math.floor(Math.random() * (max - min) + min);
+    }
+  }
+  return 5000;
+}
+
+let winTimeout = null;
+function showWinNotification() {
+  const user = rnd(WIN_USERS);
+  const game = rnd(WIN_GAMES);
+  const amount = rndAmount();
+  document.getElementById('win-icon').textContent = game.icon;
+  document.getElementById('win-text').textContent = `¡${user} acaba de ganar!`;
+  document.getElementById('win-amount').textContent = '$' + amount.toLocaleString('es-AR');
+  document.getElementById('win-game').textContent = 'en ' + game.name + ' · Tocá para jugar';
+  const el = document.getElementById('win-notification');
+  el.classList.add('show');
+  // Auto-ocultar después de 5 segundos
+  clearTimeout(winTimeout);
+  winTimeout = setTimeout(() => el.classList.remove('show'), 5000);
+  // Próxima notificación entre 20 y 45 segundos
+  const next = (20 + Math.random() * 25) * 1000;
+  setTimeout(showWinNotification, next);
+}
+
+function startWinNotifications() {
+  // Primera notificación entre 8 y 20 segundos después de entrar
+  const first = (8 + Math.random() * 12) * 1000;
+  setTimeout(showWinNotification, first);
+}
+
 // ─── WHATSAPP ROTATIVO ───────────────────────────────────
 const WA_NUMBERS = [
   '5491150460745','5491130636329','5491130373237','5491168523409',
@@ -1178,6 +1252,18 @@ if (isIOS) {
   };
 }
 </script>
+
+<!-- WIN NOTIFICATION -->
+<div id="win-notification" onclick="openCasino()">
+  <div class="win-icon" id="win-icon">🎰</div>
+  <div class="win-body">
+    <div class="win-title">🏆 ¡Premio reciente!</div>
+    <div class="win-text" id="win-text">Jugador ganó</div>
+    <div class="win-amount" id="win-amount">$0</div>
+    <div class="win-game" id="win-game">en un juego</div>
+  </div>
+  <div class="win-arrow">▶</div>
+</div>
 
 <!-- CASINO OVERLAY -->
 <div id="casino-overlay">
