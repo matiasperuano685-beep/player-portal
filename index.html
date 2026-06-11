@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CapiBet">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -634,7 +635,10 @@ function goPage(page) {
   if (page === 'transactions') loadTransactions();
   if (page === 'withdraw') populateWithdraw();
   if (page === 'chat') loadChatPage();
-  else if (chatPollInterval && page !== 'chat') { clearInterval(chatPollInterval); chatPollInterval = null; }
+  else {
+    if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+    if (chatRealtimeChannel && supabaseClient) { supabaseClient.removeChannel(chatRealtimeChannel); chatRealtimeChannel = null; }
+  }
 }
 
 // ─── HOME ────────────────────────────────────────────────
@@ -812,10 +816,23 @@ function openWhatsApp() {
   window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
 }
 
-// ─── WEBCHAT ─────────────────────────────────────────────
+// ─── WEBCHAT (Supabase Realtime) ─────────────────────────
 let chatId = null;
-let chatPollInterval = null;
-let chatLastMessageId = null;
+let chatPollInterval = null; // fallback poll si Realtime falla
+let chatRealtimeChannel = null;
+let supabaseClient = null;
+
+async function initSupabase() {
+  if (supabaseClient) return supabaseClient;
+  try {
+    const r = await fetch('/api/public/config');
+    const { url, anon_key } = await r.json();
+    if (url && anon_key) {
+      supabaseClient = window.supabase.createClient(url, anon_key, { realtime: { params: { eventsPerSecond: 10 } } });
+    }
+  } catch {}
+  return supabaseClient;
+}
 
 async function loadChatPage() {
   const casinoCard = document.getElementById('casino-card');
@@ -836,21 +853,66 @@ async function chatInit() {
     chatId = j.chat_id;
     renderChatMessages(j.messages);
     setChatStatus('');
-    startChatPoll();
+    await startChatRealtime();
   } catch(e) {
     setChatStatus('Error al conectar. Reintentando...');
     setTimeout(chatInit, 5000);
   }
 }
 
+async function startChatRealtime() {
+  const sb = await initSupabase();
+  if (!sb || !chatId) {
+    // Fallback a polling si Realtime no está disponible
+    startChatPoll();
+    return;
+  }
+  // Cancelar canal anterior si existe
+  if (chatRealtimeChannel) sb.removeChannel(chatRealtimeChannel);
+
+  chatRealtimeChannel = sb
+    .channel('chat-' + chatId)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'portal_chat_messages',
+      filter: `chat_id=eq.${chatId}`
+    }, (payload) => {
+      const m = payload.new;
+      if (m) appendChatMessage(m);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setChatStatus('');
+        // Cancelar fallback poll si Realtime funcionó
+        if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        startChatPoll(); // Fallback
+      }
+    });
+}
+
+function startChatPoll() {
+  if (chatPollInterval) return;
+  chatPollInterval = setInterval(async () => {
+    if (!chatId) return;
+    try {
+      const r = await authFetch('/api/player/chat');
+      const j = await r.json();
+      if (j.error) return;
+      const msgs = j.messages || [];
+      const currentCount = document.getElementById('chat-messages').querySelectorAll('.chat-msg').length;
+      if (msgs.length > currentCount) renderChatMessages(msgs);
+    } catch {}
+  }, 8000); // Menos frecuente que antes (8s en lugar de 4s)
+}
+
 function renderChatMessages(messages) {
   const el = document.getElementById('chat-messages');
   if (!messages || messages.length === 0) {
     el.innerHTML = '<div class="chat-empty">¡Hola! Escribinos y un operador te responderá pronto.</div>';
-    chatLastMessageId = null;
     return;
   }
-  chatLastMessageId = messages[messages.length - 1].id;
   el.innerHTML = messages.map(m => {
     const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     return `<div class="chat-msg ${m.sender}">
@@ -875,35 +937,6 @@ function appendChatMessage(m) {
   div.innerHTML = `${escHtml(m.body)}<div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>`;
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
-  chatLastMessageId = m.id;
-}
-
-function startChatPoll() {
-  if (chatPollInterval) clearInterval(chatPollInterval);
-  chatPollInterval = setInterval(chatPoll, 4000);
-}
-
-async function chatPoll() {
-  if (!chatId) return;
-  try {
-    const r = await authFetch('/api/player/chat');
-    const j = await r.json();
-    if (j.error) return;
-    // Only append new messages
-    const msgs = j.messages || [];
-    const newMsgs = chatLastMessageId
-      ? msgs.filter(m => m.created_at > (document.getElementById('chat-messages').dataset.lastTime || ''))
-      : msgs;
-    if (msgs.length > 0) {
-      const el = document.getElementById('chat-messages');
-      el.dataset.lastTime = msgs[msgs.length - 1].created_at;
-    }
-    // Re-render if new operator messages arrived
-    const currentCount = document.getElementById('chat-messages').querySelectorAll('.chat-msg').length;
-    if (msgs.length > currentCount) {
-      renderChatMessages(msgs);
-    }
-  } catch {}
 }
 
 async function chatSend() {
