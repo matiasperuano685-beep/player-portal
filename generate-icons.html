@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c192" width="192" height="192"></canvas>
+<canvas id="c512" width="512" height="512"></canvas>
+<script>
+function drawIcon(canvasId, size) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const r = size * 0.12;
+
+  // Fondo azul oscuro redondeado
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(size - r, 0);
+  ctx.quadraticCurveTo(size, 0, size, r);
+  ctx.lineTo(size, size - r);
+  ctx.quadraticCurveTo(size, size, size - r, size);
+  ctx.lineTo(r, size);
+  ctx.quadraticCurveTo(0, size, 0, size - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fillStyle = '#0b1120';
+  ctx.fill();
+
+  // Círculo azul
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size * 0.38, 0, Math.PI * 2);
+  ctx.fillStyle = '#1d4ed8';
+  ctx.fill();
+
+  // Letra P
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${size * 0.42}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', size / 2, size / 2 + size * 0.02);
+
+  return canvas.toDataURL('image/png');
+}
+
+drawIcon('c192', 192);
+drawIcon('c512', 512);
+
+document.body.innerHTML += `
+  <br><br>
+  <a download="icon-192.png" href="${document.getElementById('c192').toDataURL('image/png')}">⬇ Descargar icon-192.png</a>
+  <br><br>
+  <a download="icon-512.png" href="${document.getElementById('c512').toDataURL('image/png')}">⬇ Descargar icon-512.png</a>
+`;
+</script>
+</body>
+</html>
