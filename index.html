@@ -1030,6 +1030,58 @@ init();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ─── INSTALAR APP ────────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('install-btn').style.display = 'flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-btn').style.display = 'none';
+  deferredInstallPrompt = null;
+});
+
+function installApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => {
+      deferredInstallPrompt = null;
+      document.getElementById('install-btn').style.display = 'none';
+    });
+  }
+}
+
+// iOS: detectar y mostrar instrucciones
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone;
+if (isIOS) {
+  document.getElementById('install-btn').style.display = 'flex';
+  document.getElementById('install-btn').onclick = () => {
+    document.getElementById('ios-install-modal').style.display = 'flex';
+  };
+}
 </script>
+
+<!-- Botón flotante instalar -->
+<button id="install-btn" onclick="installApp()" style="display:none;position:fixed;bottom:90px;right:16px;z-index:500;background:linear-gradient(135deg,#d97706,#f59e0b);border:none;border-radius:50px;color:#000;font-weight:700;font-size:0.85rem;padding:12px 18px;cursor:pointer;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(245,158,11,0.5)">
+  📲 Instalar app
+</button>
+
+<!-- Modal instrucciones iOS -->
+<div id="ios-install-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:flex-end;justify-content:center">
+  <div style="background:#1a0e00;border:1px solid #d97706;border-radius:20px 20px 0 0;padding:28px 24px;width:100%;max-width:480px">
+    <div style="font-family:'Oswald',sans-serif;font-size:1.3rem;color:#f59e0b;margin-bottom:16px">Instalá CapiBet 📲</div>
+    <p style="font-size:0.9rem;color:#fef3c7;line-height:1.7;margin-bottom:8px">
+      1. Tocá el botón <strong style="color:#f59e0b">Compartir</strong> (el cuadrado con flecha ↑ en Safari)<br>
+      2. Bajá y tocá <strong style="color:#f59e0b">"Agregar a pantalla de inicio"</strong><br>
+      3. Tocá <strong style="color:#f59e0b">Agregar</strong>
+    </p>
+    <button onclick="document.getElementById('ios-install-modal').style.display='none'" style="width:100%;margin-top:16px;background:#d97706;border:none;border-radius:10px;color:#000;font-weight:700;padding:13px;font-size:1rem;cursor:pointer">Entendido</button>
+  </div>
+</div>
+
 </body>
 </html>
