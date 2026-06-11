@@ -1,12 +1,12 @@
 {
-  "name": "Portal de Jugadores",
-  "short_name": "Portal",
+  "name": "CapiBet",
+  "short_name": "CapiBet",
   "description": "Tu portal de juego — cargá saldo, retirá y chateá con soporte",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0b1120",
-  "theme_color": "#1d4ed8",
+  "background_color": "#080400",
+  "theme_color": "#f59e0b",
   "icons": [
     {
       "src": "/icons/icon-192.png",
