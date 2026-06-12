@@ -332,6 +332,18 @@
   .support-intro-title { font-size: 0.95rem; font-weight: 700; color: #a5b4fc; margin-bottom: 3px; }
   .support-intro-sub { font-size: 0.78rem; color: rgba(165,180,252,0.6); line-height: 1.45; }
 
+  /* ─── QUICK REPLIES ─────────────────────────────────── */
+  .quick-replies { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .quick-btn {
+    flex: 1; min-width: 90px;
+    background: var(--card2); border: 1px solid var(--border-g);
+    border-radius: 20px; color: var(--gold); font-size: 0.85rem;
+    font-weight: 700; padding: 10px 14px; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .quick-btn:hover { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.45); }
+  .quick-btn:active { transform: scale(0.96); }
+
   /* ─── CHAT CTA BANNER ───────────────────────────────── */
   @keyframes pulse-ring {
     0%   { transform: scale(1);   opacity: 0.7; }
@@ -687,6 +699,11 @@
         <div class="support-intro-title">¿En qué te podemos ayudar?</div>
         <div class="support-intro-sub">Nuestro equipo responde cargas, retiros y consultas. Escribinos y te respondemos a la brevedad.</div>
       </div>
+    </div>
+    <div class="quick-replies">
+      <button class="quick-btn" onclick="chatQuickSend('💰 Quiero cargar saldo')">💰 Carga</button>
+      <button class="quick-btn" onclick="chatQuickSend('💸 Quiero retirar saldo')">💸 Retiro</button>
+      <button class="quick-btn" onclick="chatQuickSend('❓ Tengo una consulta')">❓ Consulta</button>
     </div>
     <div class="card" style="padding-bottom:8px">
       <div id="chat-window">
@@ -1230,6 +1247,12 @@ function chatKeyDown(e) {
     e.preventDefault();
     chatSend();
   }
+}
+
+async function chatQuickSend(text) {
+  const input = document.getElementById('chat-input');
+  input.value = text;
+  await chatSend();
 }
 
 function setChatStatus(msg) {
