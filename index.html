@@ -320,6 +320,18 @@
   #chat-send-btn:disabled { background: var(--card2); color: var(--muted); cursor: not-allowed; box-shadow: none; }
   .chat-status { font-size: 0.75rem; color: var(--muted); text-align: center; padding: 6px 0; }
 
+  /* ─── SUPPORT INTRO ─────────────────────────────────── */
+  .support-intro {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, #0a1020, #0d1530);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 16px; padding: 16px 18px; margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.08);
+  }
+  .support-intro-icon { font-size: 2rem; flex-shrink: 0; }
+  .support-intro-title { font-size: 0.95rem; font-weight: 700; color: #a5b4fc; margin-bottom: 3px; }
+  .support-intro-sub { font-size: 0.78rem; color: rgba(165,180,252,0.6); line-height: 1.45; }
+
   /* ─── CHAT CTA BANNER ───────────────────────────────── */
   @keyframes pulse-ring {
     0%   { transform: scale(1);   opacity: 0.7; }
@@ -667,7 +679,14 @@
   <div class="page" id="page-chat">
     <div class="page-title">
       <button class="back-btn" onclick="goPage('home')">←</button>
-      Chat y soporte
+      Soporte
+    </div>
+    <div class="support-intro">
+      <div class="support-intro-icon">🎧</div>
+      <div>
+        <div class="support-intro-title">¿En qué te podemos ayudar?</div>
+        <div class="support-intro-sub">Nuestro equipo responde cargas, retiros y consultas. Escribinos y te respondemos a la brevedad.</div>
+      </div>
     </div>
     <div class="card" style="padding-bottom:8px">
       <div id="chat-window">
@@ -1150,7 +1169,7 @@ function startChatPoll() {
 function renderChatMessages(messages) {
   const el = document.getElementById('chat-messages');
   if (!messages || messages.length === 0) {
-    el.innerHTML = '<div class="chat-empty">¡Hola! Escribinos y un operador te responderá pronto.</div>';
+    el.innerHTML = '<div class="chat-empty">👋 ¡Hola! Contanos en qué te podemos ayudar y un operador te responderá a la brevedad.</div>';
     return;
   }
   el.innerHTML = messages.map(m => {
