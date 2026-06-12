@@ -930,6 +930,9 @@ async function requestDeposit() {
     const j = await r.json();
     if (j.error) throw new Error(j.error);
     showAlert('dep', 'success', '✅ Solicitud enviada. Un operador la aprobará pronto.');
+    const s = currentSettings;
+    const bankInfo = s ? `\n🏦 Banco: ${s.bank_name||'—'}\n📋 CBU: ${s.bank_cbu||'—'}\n🔤 Alias: ${s.bank_alias||'—'}\n👤 A nombre de: ${s.bank_account_name||'—'}` : '';
+    await sendChatAutoMessage(`💰 SOLICITUD DE CARGA\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}${notes ? '\n📝 Comprobante/nota: ' + notes : ''}${bankInfo}`);
     document.getElementById('dep-amount').value = '';
     document.getElementById('dep-notes').value = '';
   } catch(e) {
@@ -966,6 +969,9 @@ async function requestWithdraw() {
     const j = await r.json();
     if (j.error) throw new Error(j.error);
     showAlert('wit', 'success', '✅ Solicitud enviada. Un operador la procesará pronto.');
+    const b = currentBank;
+    const bankInfo = b ? `\n🏦 Banco: ${b.bank_name||'—'}\n📋 CBU: ${b.cbu||'—'}\n🔤 Alias: ${b.alias||'—'}\n👤 Titular: ${b.account_name||'—'}` : '';
+    await sendChatAutoMessage(`💸 SOLICITUD DE RETIRO\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}${notes ? '\n📝 Nota: ' + notes : ''}${bankInfo}`);
     document.getElementById('wit-amount').value = '';
     await loadMeData(); populateWithdraw(); renderHome();
   } catch(e) {
@@ -1320,6 +1326,22 @@ function showToast(msg) {
   el.textContent = msg; el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─── AUTO MENSAJE AL CHAT ────────────────────────────────
+async function sendChatAutoMessage(body) {
+  try {
+    // Obtener o crear el chat del jugador
+    if (!chatId) {
+      const r = await authFetch('/api/player/chat');
+      const j = await r.json();
+      if (j.chat_id) chatId = j.chat_id;
+    }
+    await authFetch('/api/player/chat', {
+      method: 'POST',
+      body: JSON.stringify({ body, chat_id: chatId })
+    });
+  } catch {}
 }
 
 // ─── WIN NOTIFICATIONS ───────────────────────────────────
