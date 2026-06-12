@@ -1429,9 +1429,14 @@ function showWinNotification() {
   document.getElementById('win-text').textContent = `¡${user} acaba de ganar!`;
   document.getElementById('win-amount').textContent = '$' + amount.toLocaleString('es-AR');
   document.getElementById('win-game').textContent = 'en ' + game.name + ' · Tocá para jugar';
+  if (currentPage === 'chat') {
+    const next = (20 + Math.random() * 25) * 1000;
+    setTimeout(showWinNotification, next);
+    return;
+  }
   const el = document.getElementById('win-notification');
   el.classList.remove('hide');
-  void el.offsetWidth; // forzar reflow para reiniciar animación
+  void el.offsetWidth;
   el.classList.add('show');
   clearTimeout(winTimeout);
   winTimeout = setTimeout(() => {
