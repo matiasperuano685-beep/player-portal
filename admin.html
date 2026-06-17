@@ -80,6 +80,35 @@
   .save-msg.err { color: #f87171; }
 
   .info-note { font-size: 0.78rem; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+  /* JUGADORES */
+  .player-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .player-row { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .player-info { flex: 1; min-width: 0; }
+  .player-name { font-weight: 700; font-size: 0.92rem; color: var(--text); }
+  .player-meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .badge-active   { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); border-radius: 20px; padding: 2px 9px; font-size: 0.7rem; font-weight: 700; }
+  .badge-inactive { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.25); border-radius: 20px; padding: 2px 9px; font-size: 0.7rem; font-weight: 700; }
+  .btn-edit { background: var(--card2); border: 1px solid var(--border-g); border-radius: 8px; color: var(--gold); font-size: 0.78rem; font-weight: 700; padding: 6px 14px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-edit:hover { background: rgba(245,158,11,0.12); }
+  .section-card h2 .btn-sm { margin-left: auto; background: linear-gradient(135deg, var(--gold-dark), var(--gold-light)); border: none; border-radius: 8px; color: #000; font-size: 0.78rem; font-weight: 700; padding: 6px 14px; cursor: pointer; font-family: inherit; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: linear-gradient(160deg,#1c0d00,#110700); border: 1px solid var(--border-g); border-radius: 20px; padding: 24px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
+  .modal h3 { font-family: 'Oswald', sans-serif; font-size: 1.1rem; color: var(--gold); margin-bottom: 18px; }
+  .modal .field { margin-bottom: 14px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .btn-cancel { flex: 1; background: var(--card2); border: 1px solid var(--border); border-radius: 10px; color: var(--muted); font-size: 0.9rem; font-weight: 700; padding: 12px; cursor: pointer; transition: all 0.15s; }
+  .btn-cancel:hover { border-color: #7f1d1d; color: #f87171; }
+  .btn-confirm { flex: 2; background: linear-gradient(135deg, var(--gold-dark), var(--gold-light)); border: none; border-radius: 10px; color: #000; font-size: 0.9rem; font-weight: 700; padding: 12px; cursor: pointer; transition: all 0.2s; }
+  .btn-confirm:hover { box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
+  .btn-confirm:disabled { background: var(--card2); color: var(--muted); cursor: not-allowed; box-shadow: none; }
+  .modal-msg { font-size: 0.82rem; margin-top: 10px; display: none; }
+  .modal-msg.ok  { color: #4ade80; }
+  .modal-msg.err { color: #f87171; }
+  .empty-players { text-align: center; color: var(--muted); padding: 24px; font-size: 0.88rem; }
 </style>
 </head>
 <body>
@@ -179,6 +208,86 @@
       </div>
     </div>
 
+    <!-- JUGADORES -->
+    <div class="section-card">
+      <h2>👥 Jugadores <button class="btn-sm" onclick="openNewPlayer()">+ Nuevo jugador</button></h2>
+      <div id="player-list-wrap">
+        <div class="empty-players">Cargando...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL NUEVO JUGADOR -->
+<div class="modal-overlay" id="modal-new">
+  <div class="modal">
+    <h3>➕ Nuevo jugador</h3>
+    <div class="grid-2">
+      <div class="field">
+        <label>Usuario</label>
+        <input type="text" id="np-username" placeholder="sin espacios, minúsculas" />
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="text" id="np-password" value="Capi123456" />
+      </div>
+      <div class="field full" style="grid-column:1/-1">
+        <label>Nombre completo</label>
+        <input type="text" id="np-fullname" placeholder="Nombre y apellido" />
+      </div>
+      <div class="field">
+        <label>WhatsApp</label>
+        <input type="text" id="np-whatsapp" placeholder="5491123456789" />
+      </div>
+      <div class="field">
+        <label>Usuario casino (bet32)</label>
+        <input type="text" id="np-casino" placeholder="Opcional" />
+      </div>
+    </div>
+    <div class="modal-msg" id="new-msg"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-new')">Cancelar</button>
+      <button class="btn-confirm" id="np-btn" onclick="createPlayer()">Crear jugador</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR JUGADOR -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <h3>✏️ Editar jugador</h3>
+    <input type="hidden" id="ep-id" />
+    <div class="grid-2">
+      <div class="field full" style="grid-column:1/-1">
+        <label>Nombre completo</label>
+        <input type="text" id="ep-fullname" />
+      </div>
+      <div class="field">
+        <label>WhatsApp</label>
+        <input type="text" id="ep-whatsapp" />
+      </div>
+      <div class="field">
+        <label>Usuario casino (bet32)</label>
+        <input type="text" id="ep-casino" />
+      </div>
+      <div class="field">
+        <label>Nueva contraseña</label>
+        <input type="text" id="ep-password" placeholder="Dejar vacío para no cambiar" />
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="ep-status" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px 14px;font-size:0.92rem;outline:none;width:100%">
+          <option value="active">Activo</option>
+          <option value="inactive">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-msg" id="edit-msg"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-edit')">Cancelar</button>
+      <button class="btn-confirm" id="ep-btn" onclick="savePlayer()">Guardar cambios</button>
+    </div>
   </div>
 </div>
 
@@ -205,6 +314,7 @@ function doLogin() {
       loadSettings(j.settings);
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-app').style.display = 'block';
+      loadPlayers();
     })
     .catch(e => {
       err.textContent = e.message;
@@ -269,6 +379,107 @@ async function saveSettings(section) {
     msgEl.style.display = 'inline';
   } finally { btn.disabled = false; }
 }
+
+// ─── JUGADORES ───────────────────────────────────────────
+function opFetch(url, opts = {}) {
+  return fetch(BASE + url, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'x-operator-key': operatorKey, ...(opts.headers || {}) }
+  });
+}
+
+async function loadPlayers() {
+  const wrap = document.getElementById('player-list-wrap');
+  try {
+    const r = await opFetch('/api/operator/players');
+    const j = await r.json();
+    const players = j.data || [];
+    if (!players.length) { wrap.innerHTML = '<div class="empty-players">No hay jugadores aún.</div>'; return; }
+    wrap.innerHTML = '<div class="player-list">' + players.map(p => `
+      <div class="player-row">
+        <div class="player-info">
+          <div class="player-name">${esc(p.full_name)} <span style="color:var(--muted);font-weight:400">@${esc(p.username)}</span></div>
+          <div class="player-meta">${p.whatsapp ? '📱 ' + esc(p.whatsapp) : ''}${p.casino_username ? ' · 🎰 ' + esc(p.casino_username) : ''}</div>
+        </div>
+        <span class="${p.status === 'active' ? 'badge-active' : 'badge-inactive'}">${p.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+        <button class="btn-edit" onclick='openEditPlayer(${JSON.stringify(p)})'>Editar</button>
+      </div>`).join('') + '</div>';
+  } catch { wrap.innerHTML = '<div class="empty-players">Error al cargar jugadores.</div>'; }
+}
+
+function openNewPlayer() {
+  ['np-username','np-fullname','np-whatsapp','np-casino'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('np-password').value = 'Capi123456';
+  showModalMsg('new', null);
+  document.getElementById('modal-new').classList.add('open');
+}
+
+async function createPlayer() {
+  const btn = document.getElementById('np-btn');
+  btn.disabled = true; btn.textContent = 'Creando...';
+  showModalMsg('new', null);
+  try {
+    const r = await opFetch('/api/operator/players', {
+      method: 'POST',
+      body: JSON.stringify({
+        username:       document.getElementById('np-username').value.trim().toLowerCase(),
+        password:       document.getElementById('np-password').value,
+        full_name:      document.getElementById('np-fullname').value.trim(),
+        whatsapp:       document.getElementById('np-whatsapp').value.trim(),
+        casino_username:document.getElementById('np-casino').value.trim()
+      })
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    showModalMsg('new', 'ok', '✅ Jugador creado correctamente');
+    setTimeout(() => { closeModal('modal-new'); loadPlayers(); }, 1200);
+  } catch(e) {
+    showModalMsg('new', 'err', '❌ ' + e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Crear jugador'; }
+}
+
+function openEditPlayer(p) {
+  document.getElementById('ep-id').value          = p.id;
+  document.getElementById('ep-fullname').value    = p.full_name || '';
+  document.getElementById('ep-whatsapp').value    = p.whatsapp || '';
+  document.getElementById('ep-casino').value      = p.casino_username || '';
+  document.getElementById('ep-password').value    = '';
+  document.getElementById('ep-status').value      = p.status || 'active';
+  showModalMsg('edit', null);
+  document.getElementById('modal-edit').classList.add('open');
+}
+
+async function savePlayer() {
+  const btn = document.getElementById('ep-btn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  showModalMsg('edit', null);
+  try {
+    const body = {
+      id:             document.getElementById('ep-id').value,
+      full_name:      document.getElementById('ep-fullname').value.trim(),
+      whatsapp:       document.getElementById('ep-whatsapp').value.trim(),
+      casino_username:document.getElementById('ep-casino').value.trim(),
+      status:         document.getElementById('ep-status').value,
+    };
+    const pw = document.getElementById('ep-password').value;
+    if (pw) body.password = pw;
+    const r = await opFetch('/api/operator/players', { method: 'PUT', body: JSON.stringify(body) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    showModalMsg('edit', 'ok', '✅ Cambios guardados');
+    setTimeout(() => { closeModal('modal-edit'); loadPlayers(); }, 1200);
+  } catch(e) {
+    showModalMsg('edit', 'err', '❌ ' + e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showModalMsg(prefix, type, msg) {
+  const el = document.getElementById(prefix + '-msg');
+  if (!type) { el.style.display = 'none'; return; }
+  el.textContent = msg; el.className = 'modal-msg ' + type; el.style.display = 'block';
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // Auto-login si hay clave guardada
 window.addEventListener('DOMContentLoaded', () => {
