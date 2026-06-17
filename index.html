@@ -1124,7 +1124,7 @@ async function chatInit() {
     chatId = j.chat_id;
     renderChatMessages(j.messages);
     setChatStatus('');
-    await startChatRealtime();
+    startChatPoll();
   } catch(e) {
     setChatStatus('Error al conectar. Reintentando...');
     setTimeout(chatInit, 5000);
@@ -1168,10 +1168,11 @@ function startChatPoll() {
       const j = await r.json();
       if (j.error) return;
       const msgs = j.messages || [];
-      const currentCount = document.getElementById('chat-messages').querySelectorAll('.chat-msg').length;
-      if (msgs.length > currentCount) renderChatMessages(msgs);
+      const lastShown = document.querySelector('#chat-messages .chat-msg:last-child')?.dataset?.id;
+      const lastFetched = msgs[msgs.length - 1]?.id;
+      if (lastFetched && lastFetched !== lastShown) renderChatMessages(msgs);
     } catch {}
-  }, 8000); // Menos frecuente que antes (8s en lugar de 4s)
+  }, 3000); // Menos frecuente que antes (8s en lugar de 4s)
 }
 
 function renderChatMessages(messages) {
@@ -1182,7 +1183,7 @@ function renderChatMessages(messages) {
   }
   el.innerHTML = messages.map(m => {
     const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-    return `<div class="chat-msg ${m.sender}">
+    return `<div class="chat-msg ${m.sender}" data-id="${m.id}">
       ${escHtml(m.body)}
       <div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>
     </div>`;
