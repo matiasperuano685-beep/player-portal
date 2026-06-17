@@ -1153,20 +1153,16 @@ async function startChatRealtime() {
       if (m) appendChatMessage(m);
     })
     .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        setChatStatus('');
-        // Cancelar fallback poll si Realtime funcionó
-        if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        startChatPoll(); // Fallback
-      }
+      if (status === 'SUBSCRIBED') setChatStatus('');
+      // Siempre mantener polling como respaldo
+      startChatPoll();
     });
 }
 
 function startChatPoll() {
   if (chatPollInterval) return;
   chatPollInterval = setInterval(async () => {
-    if (!chatId) return;
+    if (!chatId || currentPage !== 'chat') return;
     try {
       const r = await authFetch('/api/player/chat');
       const j = await r.json();
