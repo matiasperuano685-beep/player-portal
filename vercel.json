@@ -1,6 +1,6 @@
 {
   "outputDirectory": ".",
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|admin).*)", "destination": "/index.html" }
   ]
 }
