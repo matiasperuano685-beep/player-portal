@@ -123,8 +123,12 @@
   <div class="login-box">
     <div class="login-error" id="login-error"></div>
     <div class="form-group">
-      <label>Clave de acceso</label>
-      <input type="password" id="admin-key" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()" />
+      <label>Usuario</label>
+      <input type="text" id="admin-user" placeholder="Usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="admin-key" placeholder="••••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
     </div>
     <button class="btn-primary" id="login-btn" onclick="doLogin()">Ingresar</button>
   </div>
@@ -296,10 +300,12 @@ const BASE = '';
 let operatorKey = '';
 
 function doLogin() {
+  const user = document.getElementById('admin-user').value.trim();
   const key = document.getElementById('admin-key').value.trim();
   const err = document.getElementById('login-error');
   const btn = document.getElementById('login-btn');
-  if (!key) { err.textContent = 'Ingresá la clave'; err.style.display = 'block'; return; }
+  if (!user || !key) { err.textContent = 'Completá usuario y contraseña'; err.style.display = 'block'; return; }
+  if (user !== 'admin') { err.textContent = 'Usuario incorrecto'; err.style.display = 'block'; return; }
   btn.disabled = true; btn.textContent = 'Verificando...';
   err.style.display = 'none';
   // Verificar la clave intentando cargar settings
