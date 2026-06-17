@@ -305,7 +305,7 @@ function doLogin() {
   const err = document.getElementById('login-error');
   const btn = document.getElementById('login-btn');
   if (!user || !key) { err.textContent = 'Completá usuario y contraseña'; err.style.display = 'block'; return; }
-  if (user !== 'admin') { err.textContent = 'Usuario incorrecto'; err.style.display = 'block'; return; }
+  if (user.toLowerCase() !== 'admin') { err.textContent = 'Usuario incorrecto'; err.style.display = 'block'; return; }
   btn.disabled = true; btn.textContent = 'Verificando...';
   err.style.display = 'none';
   // Verificar la clave intentando cargar settings
