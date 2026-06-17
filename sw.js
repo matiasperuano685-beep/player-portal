@@ -1,4 +1,4 @@
-const CACHE = 'capibet-v3';
+const CACHE = 'capibet-v4';
 const OFFLINE_ASSETS = ['/'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,31 @@ self.addEventListener('activate', e => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener('push', e => {
+  const data = e.data?.json() || { title: 'CapiBet', body: 'Tenés un nuevo mensaje' };
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: 'capibet-chat',
+      renotify: true,
+      data: { url: '/' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) { if (c.url.includes(self.location.origin)) { c.focus(); return; } }
+      return clients.openWindow('/');
+    })
+  );
 });
 
 self.addEventListener('fetch', e => {

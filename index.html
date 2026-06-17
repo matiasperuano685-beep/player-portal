@@ -878,6 +878,7 @@ function showApp() {
   populateBank();
   populateProfile();
   startWinNotifications();
+  registerPush();
 }
 
 async function init() {
@@ -1349,6 +1350,36 @@ function showToast(msg) {
   el.textContent = msg; el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─── PUSH NOTIFICATIONS ──────────────────────────────────
+const VAPID_PUBLIC_KEY = 'BASQoXwr8luM1HfnIyLyfaR0i_bEzvWj4Kw7BC7dTe1mxUM-AjAWC4zvzAp3nDuDNKvWnkHjh6nHJfcgnZebzEo';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function registerPush() {
+  try {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    await authFetch('/api/player/push-subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ subscription: sub.toJSON() })
+    });
+  } catch {}
 }
 
 // ─── AUTO MENSAJE AL CHAT ────────────────────────────────

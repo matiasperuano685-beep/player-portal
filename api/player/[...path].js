@@ -142,6 +142,18 @@ module.exports = async (req, res) => {
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }
 
+  // ── PUSH SUBSCRIBE ────────────────────────────────────
+  if (slug === 'push-subscribe') {
+    if (req.method !== 'POST') return res.status(405).end();
+    try {
+      const { subscription } = req.body;
+      if (!subscription) return res.status(400).json({ error: 'Falta subscription' });
+      await client.from('portal_push_subscriptions').delete().eq('player_id', claim.id);
+      await client.from('portal_push_subscriptions').insert({ player_id: claim.id, subscription });
+      return res.status(200).json({ ok: true });
+    } catch { return res.status(500).json({ error: 'Error interno' }); }
+  }
+
   // ── CHAT ──────────────────────────────────────────────
   if (slug === 'chat') {
     if (req.method === 'GET') {

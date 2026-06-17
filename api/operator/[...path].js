@@ -1,5 +1,21 @@
 const bcrypt = require('bcryptjs');
+const webpush = require('web-push');
 const { db, cors } = require('../_lib');
+
+webpush.setVapidDetails(
+  'mailto:admin@capibet.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+async function sendPushToPlayer(client, playerId, title, body) {
+  try {
+    const { data: subs } = await client.from('portal_push_subscriptions').select('subscription').eq('player_id', playerId);
+    if (!subs?.length) return;
+    const payload = JSON.stringify({ title, body });
+    await Promise.allSettled(subs.map(s => webpush.sendNotification(s.subscription, payload)));
+  } catch {}
+}
 
 function isOperator(req) {
   const key = req.headers['x-operator-key'];
@@ -117,8 +133,9 @@ module.exports = async (req, res) => {
       if (!chat_id || !body?.trim()) return res.status(400).json({ error: 'Faltan datos' });
       const { data: msg, error } = await client.from('portal_chat_messages').insert({ chat_id, sender: 'operator', body: body.trim() }).select().single();
       if (error) return res.status(500).json({ error: error.message });
-      const { data: chatRow } = await client.from('portal_chats').select('unread_player').eq('id', chat_id).single();
+      const { data: chatRow } = await client.from('portal_chats').select('unread_player, player_id').eq('id', chat_id).single();
       await client.from('portal_chats').update({ last_message_at: new Date().toISOString(), unread_operator: 0, unread_player: (chatRow?.unread_player || 0) + 1 }).eq('id', chat_id);
+      if (chatRow?.player_id) await sendPushToPlayer(client, chatRow.player_id, '🎧 CapiBet Soporte', body.trim());
       return res.status(201).json({ ok: true, message: msg });
     }
     return res.status(405).end();
