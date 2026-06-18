@@ -975,7 +975,7 @@ function populateWithdraw() {
     display.innerHTML = '<p style="color:#94a3b8;font-size:0.88rem">No tenés cuenta bancaria cargada. <span style="color:#3b82f6;cursor:pointer" onclick="goPage(\'bank\')">Agregar ahora →</span></p>';
   }
   const note = document.getElementById('wit-balance-note');
-  if (note) note.textContent = `Saldo disponible: $${formatMoney(currentPlayer?.balance || 0)}`;
+  if (note) note.textContent = `¿Cuánto querés retirar? Tenés $${formatMoney(currentPlayer?.balance || 0)} disponible`;
 }
 
 async function requestWithdraw() {
