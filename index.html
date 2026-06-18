@@ -1005,9 +1005,9 @@ async function requestDeposit() {
     if (j.error) throw new Error(j.error);
     showAlert('dep', 'success', '✅ Solicitud enviada. Un operador la aprobará pronto.');
     let msg = `💰 SOLICITUD DE CARGA\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}`;
-    if (comprobanteUrl) msg += `\n📎 Comprobante: ${comprobanteUrl}`;
     if (notes) msg += `\n📝 Nota: ${notes}`;
     await sendChatAutoMessage(msg);
+    if (comprobanteUrl) await sendChatAutoMessage(comprobanteUrl);
     document.getElementById('dep-amount').value = '';
     document.getElementById('dep-notes').value = '';
     fileInput.value = '';
