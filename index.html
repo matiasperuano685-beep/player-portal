@@ -1241,7 +1241,7 @@ function renderChatMessages(messages) {
   el.innerHTML = messages.map(m => {
     const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     return `<div class="chat-msg ${m.sender}" data-id="${m.id}">
-      ${escHtml(m.body)}
+      ${formatChatBody(m.body)}
       <div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>
     </div>`;
   }).join('');
@@ -1252,6 +1252,18 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
 
+function formatChatBody(s) {
+  const escaped = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Convertir URLs en links clicables; si es imagen mostrarla inline
+  const withLinks = escaped.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+    if (/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(url)) {
+      return `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" style="max-width:100%;max-height:220px;border-radius:10px;margin-top:6px;display:block;cursor:pointer" /></a>`;
+    }
+    return `<a href="${url}" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;word-break:break-all">${url}</a>`;
+  });
+  return withLinks.replace(/\n/g,'<br>');
+}
+
 function appendChatMessage(m) {
   const el = document.getElementById('chat-messages');
   const empty = el.querySelector('.chat-empty');
@@ -1259,7 +1271,7 @@ function appendChatMessage(m) {
   const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   const div = document.createElement('div');
   div.className = `chat-msg ${m.sender}`;
-  div.innerHTML = `${escHtml(m.body)}<div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>`;
+  div.innerHTML = `${formatChatBody(m.body)}<div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>`;
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
