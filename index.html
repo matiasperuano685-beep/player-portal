@@ -1009,7 +1009,10 @@ async function requestDeposit() {
     let msg = `💰 SOLICITUD DE CARGA\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}`;
     if (notes) msg += `\n📝 Nota: ${notes}`;
     await sendChatAutoMessage(msg);
-    if (comprobanteUrl) await sendChatAutoMessage(comprobanteUrl);
+    if (comprobanteUrl) {
+      const isPdf = comprobanteUrl.endsWith('.pdf');
+      await sendChatAutoMessage(isPdf ? `📄 Comprobante PDF: ${comprobanteUrl}` : comprobanteUrl);
+    }
     document.getElementById('dep-amount').value = '';
     document.getElementById('dep-notes').value = '';
     fileInput.value = '';
