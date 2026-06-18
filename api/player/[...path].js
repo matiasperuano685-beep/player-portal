@@ -77,8 +77,6 @@ module.exports = async (req, res) => {
       const { data: settings } = await client.from('portal_settings').select('min_deposit').limit(1).maybeSingle();
       const minDeposit = settings?.min_deposit || 0;
       if (Number(amount) < minDeposit) return res.status(400).json({ error: `El monto mínimo de carga es $${Number(minDeposit).toLocaleString('es-AR')}` });
-      const { data: hasPending } = await client.from('portal_transactions').select('id').eq('player_id', claim.id).eq('type', 'deposit').eq('status', 'pending').maybeSingle();
-      if (hasPending) return res.status(409).json({ error: 'Ya tenés una carga pendiente de aprobación' });
       const { data, error } = await client.from('portal_transactions').insert({ player_id: claim.id, type: 'deposit', amount: Number(amount), status: 'pending', notes: notes || null }).select().single();
       if (error) throw error;
       return res.status(201).json({ ok: true, transaction: data });
@@ -96,8 +94,6 @@ module.exports = async (req, res) => {
       if (Number(amount) < minWithdrawal) return res.status(400).json({ error: `El monto mínimo de retiro es $${Number(minWithdrawal).toLocaleString('es-AR')}` });
       const { data: bank } = await client.from('portal_bank_accounts').select('id').eq('player_id', claim.id).limit(1).maybeSingle();
       if (!bank) return res.status(400).json({ error: 'Debés cargar tu cuenta bancaria antes de retirar' });
-      const { data: hasPending } = await client.from('portal_transactions').select('id').eq('player_id', claim.id).eq('type', 'withdrawal').eq('status', 'pending').maybeSingle();
-      if (hasPending) return res.status(409).json({ error: 'Ya tenés un retiro pendiente de aprobación' });
       const { data, error } = await client.from('portal_transactions').insert({ player_id: claim.id, type: 'withdrawal', amount: Number(amount), status: 'pending', notes: notes || null }).select().single();
       if (error) throw error;
       return res.status(201).json({ ok: true, transaction: data });
