@@ -540,10 +540,6 @@
       <div class="chat-cta-arrow">›</div>
     </div>
 
-    <div id="home-pending-wrap" style="display:none">
-      <div class="section-title">Solicitudes pendientes</div>
-      <div class="tx-list" id="home-pending-list"></div>
-    </div>
   </div>
 
   <!-- CARGAR SALDO -->
@@ -929,12 +925,6 @@ async function loadPendingHome() {
   try {
     const r = await authFetch('/api/player/transactions');
     const j = await r.json();
-    const pending = (j.data || []).filter(t => t.status === 'pending');
-    const wrap = document.getElementById('home-pending-wrap');
-    const list = document.getElementById('home-pending-list');
-    if (!pending.length) { wrap.style.display = 'none'; return; }
-    wrap.style.display = 'block';
-    list.innerHTML = pending.map(renderTxItem).join('');
   } catch {}
 }
 
