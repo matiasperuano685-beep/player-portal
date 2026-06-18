@@ -1501,21 +1501,17 @@ function contactoWA(tipo) {
 const CASINO_URL = 'https://capibet.fans/';
 
 function openCasino() {
-  const iframe = document.getElementById('casino-iframe');
-  if (!iframe.src || iframe.src === window.location.href) {
-    iframe.src = CASINO_URL;
-  }
-  const username = currentPlayer?.username || '';
-  const name = currentPlayer?.full_name || username;
-  document.getElementById('casino-username').textContent = name ? '👤 ' + name : '';
-  document.getElementById('casino-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  const username = currentPlayer?.casino_username || currentPlayer?.username || '';
 
-  // Copiar usuario al portapapeles
+  // Copiar usuario al portapapeles y abrir en nueva pestaña
+  const doOpen = () => window.open(CASINO_URL, '_blank');
+
   if (username && navigator.clipboard) {
-    navigator.clipboard.writeText(username).then(() => {
-      showCasinoToast(`✅ Usuario copiado: ${username} — pegalo en el login`);
-    }).catch(() => {});
+    navigator.clipboard.writeText(username)
+      .then(() => { showCasinoToast(`✅ Usuario copiado: ${username} — pegalo en el casino`); doOpen(); })
+      .catch(() => doOpen());
+  } else {
+    doOpen();
   }
 }
 
