@@ -143,7 +143,7 @@ module.exports = async (req, res) => {
       const { imageBase64, mimeType } = req.body;
       if (!imageBase64 || !mimeType) return res.status(400).json({ error: 'Faltan datos' });
       const buffer = Buffer.from(imageBase64, 'base64');
-      const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/gif' ? 'gif' : 'jpg';
+      const ext = mimeType === 'application/pdf' ? 'pdf' : mimeType === 'image/png' ? 'png' : mimeType === 'image/gif' ? 'gif' : 'jpg';
       const filename = `${claim.id}_${Date.now()}.${ext}`;
       const { error: upErr } = await client.storage.from('comprobantes').upload(filename, buffer, { contentType: mimeType, upsert: false });
       if (upErr) return res.status(500).json({ error: 'Error subiendo imagen' });

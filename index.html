@@ -592,7 +592,7 @@
           <span style="font-size:1.3rem">📎</span>
           <span id="dep-file-name">Adjuntar imagen del comprobante</span>
         </label>
-        <input type="file" id="dep-file" accept="image/*" style="display:none" onchange="onDepFileChange(this)" />
+        <input type="file" id="dep-file" accept="image/*,application/pdf" style="display:none" onchange="onDepFileChange(this)" />
       </div>
       <div class="form-group">
         <label>Notas (opcional)</label>
@@ -971,18 +971,20 @@ async function compressImage(file) {
 }
 
 async function uploadComprobante(file) {
-  const compressed = await compressImage(file);
+  const isPdf = file.type === 'application/pdf';
+  const toUpload = isPdf ? file : await compressImage(file);
+  const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64 = e.target.result.split(',')[1];
       try {
-        const r = await authFetch('/api/player/upload', { method: 'POST', body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' }) });
+        const r = await authFetch('/api/player/upload', { method: 'POST', body: JSON.stringify({ imageBase64: base64, mimeType }) });
         const j = await r.json();
         resolve(j.url || null);
       } catch { resolve(null); }
     };
-    reader.readAsDataURL(compressed);
+    reader.readAsDataURL(toUpload);
   });
 }
 
