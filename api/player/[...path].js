@@ -142,6 +142,22 @@ module.exports = async (req, res) => {
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }
 
+  // ── UPLOAD COMPROBANTE ───────────────────────────────
+  if (slug === 'upload') {
+    if (req.method !== 'POST') return res.status(405).end();
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64 || !mimeType) return res.status(400).json({ error: 'Faltan datos' });
+      const buffer = Buffer.from(imageBase64, 'base64');
+      const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/gif' ? 'gif' : 'jpg';
+      const filename = `${claim.id}_${Date.now()}.${ext}`;
+      const { error: upErr } = await client.storage.from('comprobantes').upload(filename, buffer, { contentType: mimeType, upsert: false });
+      if (upErr) return res.status(500).json({ error: 'Error subiendo imagen' });
+      const { data: urlData } = client.storage.from('comprobantes').getPublicUrl(filename);
+      return res.status(200).json({ url: urlData.publicUrl });
+    } catch { return res.status(500).json({ error: 'Error interno' }); }
+  }
+
   // ── PUSH SUBSCRIBE ────────────────────────────────────
   if (slug === 'push-subscribe') {
     if (req.method !== 'POST') return res.status(405).end();

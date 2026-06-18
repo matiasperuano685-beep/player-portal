@@ -591,11 +591,19 @@
         </div>
       </div>
       <div class="form-group">
+        <label>Comprobante de transferencia</label>
+        <label id="dep-file-label" for="dep-file" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);border:1.5px dashed var(--border);border-radius:10px;cursor:pointer;font-size:0.9rem;color:var(--muted);transition:border-color 0.2s">
+          <span style="font-size:1.3rem">📎</span>
+          <span id="dep-file-name">Adjuntar imagen del comprobante</span>
+        </label>
+        <input type="file" id="dep-file" accept="image/*" style="display:none" onchange="onDepFileChange(this)" />
+      </div>
+      <div class="form-group">
         <label>Notas (opcional)</label>
-        <input type="text" id="dep-notes" placeholder="Ej: N° de comprobante" />
+        <input type="text" id="dep-notes" placeholder="Aclaraciones adicionales" />
       </div>
       <button class="btn-success" onclick="requestDeposit()" id="dep-btn">✓ Solicitar carga</button>
-      <p class="form-note">Realizá la transferencia primero y luego completá esta solicitud.</p>
+      <p class="form-note">Realizá la transferencia primero, adjuntá el comprobante y luego enviá la solicitud.</p>
     </div>
   </div>
 
@@ -939,23 +947,81 @@ function populateDeposit() {
   document.getElementById('dep-acct-name').textContent = s?.bank_account_name || '—';
 }
 
+function onDepFileChange(input) {
+  const label = document.getElementById('dep-file-name');
+  if (input.files && input.files[0]) {
+    label.textContent = '✅ ' + input.files[0].name;
+    document.getElementById('dep-file-label').style.borderColor = 'var(--gold-dark)';
+  } else {
+    label.textContent = 'Adjuntar imagen del comprobante';
+    document.getElementById('dep-file-label').style.borderColor = '';
+  }
+}
+
+async function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height;
+      const max = 1400;
+      if (w > max || h > max) {
+        if (w > h) { h = Math.round(h * max / w); w = max; }
+        else { w = Math.round(w * max / h); h = max; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(resolve, 'image/jpeg', 0.82);
+    };
+    img.onerror = () => resolve(file);
+    img.src = url;
+  });
+}
+
+async function uploadComprobante(file) {
+  const compressed = await compressImage(file);
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(',')[1];
+      try {
+        const r = await authFetch('/api/player/upload', { method: 'POST', body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' }) });
+        const j = await r.json();
+        resolve(j.url || null);
+      } catch { resolve(null); }
+    };
+    reader.readAsDataURL(compressed);
+  });
+}
+
 async function requestDeposit() {
   const btn = document.getElementById('dep-btn');
   const amount = document.getElementById('dep-amount').value;
   const notes = document.getElementById('dep-notes').value.trim();
+  const fileInput = document.getElementById('dep-file');
   showAlert('dep', null);
   if (!amount || Number(amount) <= 0) { showAlert('dep', 'error', 'Ingresá un monto'); return; }
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
+    let comprobanteUrl = null;
+    if (fileInput.files && fileInput.files[0]) {
+      btn.textContent = 'Subiendo comprobante...';
+      comprobanteUrl = await uploadComprobante(fileInput.files[0]);
+    }
     const r = await authFetch('/api/player/deposit', { method:'POST', body: JSON.stringify({amount: Number(amount), notes}) });
     const j = await r.json();
     if (j.error) throw new Error(j.error);
     showAlert('dep', 'success', '✅ Solicitud enviada. Un operador la aprobará pronto.');
-    const s = currentSettings;
-    const bankInfo = s ? `\n🏦 Banco: ${s.bank_name||'—'}\n📋 CBU: ${s.bank_cbu||'—'}\n🔤 Alias: ${s.bank_alias||'—'}\n👤 A nombre de: ${s.bank_account_name||'—'}` : '';
-    await sendChatAutoMessage(`💰 SOLICITUD DE CARGA\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}${notes ? '\n📝 Comprobante/nota: ' + notes : ''}${bankInfo}`);
+    let msg = `💰 SOLICITUD DE CARGA\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}`;
+    if (comprobanteUrl) msg += `\n📎 Comprobante: ${comprobanteUrl}`;
+    if (notes) msg += `\n📝 Nota: ${notes}`;
+    await sendChatAutoMessage(msg);
     document.getElementById('dep-amount').value = '';
     document.getElementById('dep-notes').value = '';
+    fileInput.value = '';
+    onDepFileChange(fileInput);
   } catch(e) {
     showAlert('dep', 'error', e.message);
   } finally { btn.disabled = false; btn.textContent = '✓ Solicitar carga'; }
