@@ -117,8 +117,11 @@ module.exports = async (req, res) => {
       const { chat_id } = req.query;
       if (chat_id) {
         await client.from('portal_chats').update({ unread_operator: 0 }).eq('id', chat_id);
-        const { data: messages } = await client.from('portal_chat_messages').select('id, sender, body, created_at').eq('chat_id', chat_id).order('created_at', { ascending: true }).limit(200);
-        return res.status(200).json({ messages: messages || [] });
+        const offset = parseInt(req.query.offset) || 0;
+        const limit = Math.min(parseInt(req.query.limit) || 200, 500);
+        const { data: messages } = await client.from('portal_chat_messages').select('id, sender, body, created_at').eq('chat_id', chat_id).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+        const sorted = (messages || []).reverse();
+        return res.status(200).json({ messages: sorted });
       }
       const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false });
       if (!chats) return res.status(200).json({ chats: [] });
