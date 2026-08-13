@@ -123,12 +123,18 @@ module.exports = async (req, res) => {
         const sorted = (messages || []).reverse();
         return res.status(200).json({ messages: sorted, total: count, offset, limit });
       }
-      const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false });
+      const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false }).limit(60);
       if (!chats) return res.status(200).json({ chats: [] });
-      const enriched = await Promise.all(chats.map(async (chat) => {
-        const { data: lastMsg } = await client.from('portal_chat_messages').select('sender, body, created_at').eq('chat_id', chat.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
-        return { ...chat, last_message: lastMsg };
-      }));
+      // Batch: traer último mensaje de todos los chats en paralelo, en grupos de 10
+      const enriched = [];
+      for (let i = 0; i < chats.length; i += 10) {
+        const batch = chats.slice(i, i + 10);
+        const results = await Promise.all(batch.map(async (chat) => {
+          const { data: lastMsg } = await client.from('portal_chat_messages').select('sender, body, created_at').eq('chat_id', chat.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+          return { ...chat, last_message: lastMsg };
+        }));
+        enriched.push(...results);
+      }
       return res.status(200).json({ chats: enriched });
     }
     if (req.method === 'POST') {
