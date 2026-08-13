@@ -34,10 +34,14 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  const actionUrl = e.notification.data?.actionUrl;
+  const url = (e.action && actionUrl) ? actionUrl : '/';
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      for (const c of list) { if (c.url.includes(self.location.origin)) { c.focus(); return; } }
-      return clients.openWindow('/');
+      if (url === '/') {
+        for (const c of list) { if (c.url.includes(self.location.origin)) { c.focus(); return; } }
+      }
+      return clients.openWindow(url);
     })
   );
 });
