@@ -20,6 +20,8 @@ module.exports = async (req, res) => {
       const valid = await bcrypt.compare(password, player.password_hash);
       if (!valid) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       const token = signToken(player);
+      // Actualizar último login (sin await para no demorar la respuesta)
+      client.from('portal_players').update({ last_login_at: new Date().toISOString() }).eq('id', player.id).then(() => {});
       return res.status(200).json({ token, player: { id: player.id, username: player.username, full_name: player.full_name, whatsapp: player.whatsapp, casino_username: player.casino_username, balance: player.balance } });
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }

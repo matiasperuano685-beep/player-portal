@@ -3,5 +3,11 @@
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/reengagement",
+      "schedule": "0 15 * * *"
+    }
   ]
 }
