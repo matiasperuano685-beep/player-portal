@@ -540,6 +540,33 @@
       <div class="chat-cta-arrow">›</div>
     </div>
 
+    <!-- BANNER NOTIFICACIONES -->
+    <div id="notif-banner" style="display:none;margin-top:12px;background:#1c1000;border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 16px;cursor:pointer" onclick="handleNotifBanner()">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.5rem">🔔</div>
+        <div style="flex:1">
+          <div style="font-size:0.85rem;font-weight:700;color:var(--gold)">Activá las notificaciones</div>
+          <div id="notif-banner-sub" style="font-size:0.75rem;color:#a16207;margin-top:2px">Para recibir respuestas del soporte en tu celular</div>
+        </div>
+        <div style="font-size:0.8rem;color:var(--gold);font-weight:700">Activar →</div>
+      </div>
+    </div>
+
+    <!-- MODAL iOS INSTRUCCIONES PUSH -->
+    <div id="ios-push-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:flex-end;justify-content:center">
+      <div style="background:#1a0e00;border-radius:20px 20px 0 0;padding:28px 24px 36px;width:100%;max-width:480px;border-top:2px solid var(--gold)">
+        <div style="font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:8px">📱 Cómo activar notificaciones en iPhone</div>
+        <div style="color:#fef3c7;font-size:0.85rem;line-height:1.6">
+          Para recibir notificaciones en iPhone, primero tenés que agregar CapiBet a tu pantalla de inicio:<br><br>
+          <b style="color:var(--gold)">1.</b> Tocá el botón <b>Compartir</b> (el cuadradito con la flechita ↑) en Safari<br>
+          <b style="color:var(--gold)">2.</b> Elegí <b>"Agregar a pantalla de inicio"</b><br>
+          <b style="color:var(--gold)">3.</b> Abrí la app desde el ícono que aparece en tu pantalla<br>
+          <b style="color:var(--gold)">4.</b> Volvé a tocar "Activar notificaciones"
+        </div>
+        <button onclick="document.getElementById('ios-push-modal').style.display='none'" style="margin-top:20px;width:100%;padding:14px;background:var(--gold);color:#000;font-weight:700;border:none;border-radius:10px;font-size:1rem;cursor:pointer">Entendido</button>
+      </div>
+    </div>
+
   </div>
 
   <!-- CARGAR SALDO -->
@@ -1437,9 +1464,74 @@ function urlBase64ToUint8Array(base64String) {
 
 async function registerPush() {
   try {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      // Dispositivo no soporta push — ocultar banner
+      return;
+    }
+
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isInStandaloneMode = window.navigator.standalone === true;
+
+    // iOS fuera de standalone: mostrar banner con instrucciones
+    if (isIos && !isInStandaloneMode) {
+      showNotifBanner('Para recibir notificaciones, agregá la app a tu pantalla de inicio');
+      return;
+    }
+
+    const permission = Notification.permission;
+
+    if (permission === 'granted') {
+      // Ya tiene permiso — suscribir silenciosamente
+      await doSubscribePush();
+      hideBanner();
+      return;
+    }
+
+    if (permission === 'denied') {
+      // Bloqueado — no hay nada que hacer
+      return;
+    }
+
+    // 'default' — mostrar banner para pedir permiso con contexto
+    showNotifBanner('Para recibir respuestas del soporte en tu celular');
+  } catch {}
+}
+
+function showNotifBanner(sub) {
+  const banner = document.getElementById('notif-banner');
+  const subEl = document.getElementById('notif-banner-sub');
+  if (subEl) subEl.textContent = sub;
+  if (banner) banner.style.display = 'block';
+}
+
+function hideBanner() {
+  const banner = document.getElementById('notif-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+async function handleNotifBanner() {
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isInStandaloneMode = window.navigator.standalone === true;
+
+  if (isIos && !isInStandaloneMode) {
+    document.getElementById('ios-push-modal').style.display = 'flex';
+    return;
+  }
+
+  try {
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
+    if (permission === 'granted') {
+      await doSubscribePush();
+      hideBanner();
+      showToast('🔔 Notificaciones activadas');
+    } else {
+      hideBanner();
+    }
+  } catch {}
+}
+
+async function doSubscribePush() {
+  try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
