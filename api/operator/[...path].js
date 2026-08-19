@@ -125,7 +125,17 @@ module.exports = async (req, res) => {
       }
       const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false }).limit(80);
       if (!chats) return res.status(200).json({ chats: [] });
-      return res.status(200).json({ chats });
+      // Traer último mensaje de cada chat en una sola consulta
+      const chatIds = chats.map(c => c.id);
+      const { data: lastMsgs } = await client.from('portal_chat_messages')
+        .select('id, chat_id, sender, body, created_at')
+        .in('chat_id', chatIds)
+        .order('created_at', { ascending: false });
+      // Mapear el primer mensaje (más reciente) por chat_id
+      const lastMsgMap = {};
+      (lastMsgs || []).forEach(m => { if (!lastMsgMap[m.chat_id]) lastMsgMap[m.chat_id] = m; });
+      const enriched = chats.map(c => ({ ...c, last_message: lastMsgMap[c.id] || null }));
+      return res.status(200).json({ chats: enriched });
     }
     if (req.method === 'POST') {
       const { chat_id, body } = req.body;
