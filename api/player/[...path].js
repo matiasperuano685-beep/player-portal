@@ -170,7 +170,8 @@ module.exports = async (req, res) => {
   if (slug === 'chat') {
     if (req.method === 'GET') {
       try {
-        let { data: chat } = await client.from('portal_chats').select('*').eq('player_id', claim.id).maybeSingle();
+        let { data: chats } = await client.from('portal_chats').select('*').eq('player_id', claim.id).order('created_at', { ascending: true });
+        let chat = chats?.[0] || null;
         if (!chat) {
           const { data: newChat } = await client.from('portal_chats').insert({ player_id: claim.id }).select().single();
           chat = newChat;
@@ -187,9 +188,9 @@ module.exports = async (req, res) => {
         if (!body?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
         let chatId = chat_id;
         if (!chatId) {
-          let { data: chat } = await client.from('portal_chats').select('id').eq('player_id', claim.id).maybeSingle();
-          if (!chat) { const { data: nc } = await client.from('portal_chats').insert({ player_id: claim.id }).select().single(); chat = nc; }
-          chatId = chat.id;
+          let { data: chats } = await client.from('portal_chats').select('id').eq('player_id', claim.id).order('created_at', { ascending: true });
+          if (!chats?.length) { const { data: nc } = await client.from('portal_chats').insert({ player_id: claim.id }).select().single(); chatId = nc.id; }
+          else { chatId = chats[0].id; }
         }
         const { data: msg, error } = await client.from('portal_chat_messages').insert({ chat_id: chatId, sender: 'player', body: body.trim() }).select().single();
         if (error) throw error;
