@@ -109,6 +109,16 @@
   .modal-msg.ok  { color: #4ade80; }
   .modal-msg.err { color: #f87171; }
   .empty-players { text-align: center; color: var(--muted); padding: 24px; font-size: 0.88rem; }
+
+  /* ESTADÍSTICAS */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 400px) { .stats-grid { grid-template-columns: 1fr; } }
+  .stat-tile { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 14px; text-align: center; }
+  .stat-tile .stat-val { font-family: 'Oswald', sans-serif; font-size: 2rem; font-weight: 700; line-height: 1; }
+  .stat-tile .stat-lbl { font-size: 0.72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; }
+  .stat-tile.total .stat-val { color: var(--gold); }
+  .stat-tile.active .stat-val { color: #4ade80; }
+  .stat-tile.inactive .stat-val { color: #f87171; }
 </style>
 </head>
 <body>
@@ -209,6 +219,25 @@
       <div class="save-row">
         <button class="btn-save" onclick="saveSettings('general')">Guardar configuración</button>
         <span class="save-msg" id="general-msg"></span>
+      </div>
+    </div>
+
+    <!-- ESTADÍSTICAS -->
+    <div class="section-card">
+      <h2>📊 Estadísticas</h2>
+      <div class="stats-grid">
+        <div class="stat-tile total">
+          <div class="stat-val" id="stat-total">—</div>
+          <div class="stat-lbl">Total registrados</div>
+        </div>
+        <div class="stat-tile active">
+          <div class="stat-val" id="stat-active">—</div>
+          <div class="stat-lbl">Activos</div>
+        </div>
+        <div class="stat-tile inactive">
+          <div class="stat-val" id="stat-inactive">—</div>
+          <div class="stat-lbl">Inactivos</div>
+        </div>
       </div>
     </div>
 
@@ -400,6 +429,10 @@ async function loadPlayers() {
     const r = await opFetch('/api/operator/players');
     const j = await r.json();
     const players = j.data || [];
+    const active = players.filter(p => p.status === 'active').length;
+    document.getElementById('stat-total').textContent   = players.length;
+    document.getElementById('stat-active').textContent  = active;
+    document.getElementById('stat-inactive').textContent= players.length - active;
     if (!players.length) { wrap.innerHTML = '<div class="empty-players">No hay jugadores aún.</div>'; return; }
     wrap.innerHTML = '<div class="player-list">' + players.map(p => `
       <div class="player-row">
