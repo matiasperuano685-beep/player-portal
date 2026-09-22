@@ -93,7 +93,8 @@ module.exports = async (req, res) => {
       }
       try {
         const settings = await bot.getSettings(client);
-        if (bot.botActive(settings, tx.portal_players?.username)) {
+        const chat = await bot.getOrCreateChat(client, tx.player_id);
+        if (bot.botActive(settings, tx.portal_players?.username, chat)) {
           const note = await bot.notifyTransactionResult(client, tx, action, operator_notes);
           if (note) await sendPushToPlayer(client, tx.player_id, '💬 Novedades de tu cuenta', note.body.split('\n')[0]);
         }
@@ -131,7 +132,8 @@ module.exports = async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 1000, 2000);
         const { data: messages, count } = await client.from('portal_chat_messages').select('id, sender, body, meta, created_at', { count: 'exact' }).eq('chat_id', chat_id).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
         const sorted = await bot.signMessageUrls(client, (messages || []).reverse());
-        return res.status(200).json({ messages: sorted, total: count, offset, limit });
+        const { data: chatRow } = await client.from('portal_chats').select('bot_enabled').eq('id', chat_id).maybeSingle();
+        return res.status(200).json({ messages: sorted, total: count, offset, limit, bot_enabled: chatRow?.bot_enabled !== false });
       }
       const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false }).limit(80);
       if (!chats) return res.status(200).json({ chats: [] });
@@ -156,6 +158,14 @@ module.exports = async (req, res) => {
       await client.from('portal_chats').update({ last_message_at: new Date().toISOString(), unread_operator: 0, unread_player: (chatRow?.unread_player || 0) + 1 }).eq('id', chat_id);
       if (chatRow?.player_id) await sendPushToPlayer(client, chatRow.player_id, '🎧 CapiBet Soporte', body.trim());
       return res.status(201).json({ ok: true, message: msg });
+    }
+    // Prender/apagar el bot en una conversación (desde Chat Jugadores del CRM)
+    if (req.method === 'PUT') {
+      const { chat_id, bot_enabled } = req.body;
+      if (!chat_id || typeof bot_enabled !== 'boolean') return res.status(400).json({ error: 'Faltan datos' });
+      const { error } = await client.from('portal_chats').update({ bot_enabled }).eq('id', chat_id);
+      if (error) return res.status(500).json({ error: 'Error interno' });
+      return res.status(200).json({ ok: true, bot_enabled });
     }
     return res.status(405).end();
   }

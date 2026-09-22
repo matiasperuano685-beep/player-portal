@@ -11,9 +11,13 @@ function money(n) {
   return Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 });
 }
 
-// El bot está activo si está prendido globalmente en portal_settings, o si el
-// jugador está en BOT_TEST_USERS (para probar en un deploy de prueba sin afectar a nadie).
-function botActive(settings, username) {
+// El bot está activo si:
+//   1) está prendido globalmente (portal_settings.bot_enabled), o el jugador está
+//      en BOT_TEST_USERS (para probar sin afectar a nadie), Y
+//   2) no está apagado en esa conversación (portal_chats.bot_enabled),
+//      que es lo que el operador maneja desde Chat Jugadores.
+function botActive(settings, username, chat) {
+  if (chat && chat.bot_enabled === false) return false;
   if (settings?.bot_enabled) return true;
   const testers = (process.env.BOT_TEST_USERS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   return !!username && testers.includes(String(username).toLowerCase());

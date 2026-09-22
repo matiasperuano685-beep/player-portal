@@ -182,7 +182,7 @@ module.exports = async (req, res) => {
         const settings = await bot.getSettings(client);
         return res.status(200).json({
           chat_id: chat.id,
-          bot_active: bot.botActive(settings, claim.username),
+          bot_active: bot.botActive(settings, claim.username, chat),
           messages: await bot.signMessageUrls(client, messages || []),
         });
       } catch { return res.status(500).json({ error: 'Error interno' }); }
@@ -199,7 +199,7 @@ module.exports = async (req, res) => {
         await bot.touchChat(client, chat.id, 'player');
         let replies = [];
         const settings = await bot.getSettings(client);
-        if (bot.botActive(settings, claim.username)) {
+        if (bot.botActive(settings, claim.username, chat)) {
           try {
             replies = action
               ? await bot.replyToAction(client, { chatId: chat.id, playerId: claim.id, action, settings })
