@@ -32,3 +32,11 @@ insert into public.portal_cash_accounts (bank_name, cbu, alias, account_name, is
 select bank_name, bank_cbu, bank_alias, bank_account_name, true
 from public.portal_settings
 where not exists (select 1 from public.portal_cash_accounts);
+
+-- Conciliación con LurkerPay (etapa 3)
+alter table public.portal_transactions add column if not exists lurkerpay_tx_id text;
+alter table public.portal_transactions add column if not exists lurkerpay_deposit_id text;
+alter table public.portal_transactions add column if not exists matched_at timestamptz;
+alter table public.portal_transactions add column if not exists match_info jsonb;
+alter table public.portal_cash_accounts add column if not exists lurkerpay_cuenta_id text;
+create index if not exists idx_portal_tx_pending on public.portal_transactions (status, type, created_at desc);

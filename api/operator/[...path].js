@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
   if (slug === 'transactions') {
     if (req.method === 'GET') {
       const status = req.query.status || 'pending';
-      let query = client.from('portal_transactions').select(`id, type, amount, status, notes, operator_notes, comprobante_path, chat_id, created_at, updated_at, portal_players (id, username, full_name, whatsapp, casino_username, balance)`).order('created_at', { ascending: false });
+      let query = client.from('portal_transactions').select(`id, type, amount, status, notes, operator_notes, comprobante_path, chat_id, matched_at, match_info, lurkerpay_tx_id, created_at, updated_at, portal_players (id, username, full_name, whatsapp, casino_username, balance)`).order('created_at', { ascending: false });
       if (status !== 'all') query = query.eq('status', status);
       const { data, error } = await query.limit(200);
       if (error) return res.status(500).json({ error: 'Error interno' });
