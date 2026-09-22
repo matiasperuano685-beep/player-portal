@@ -122,6 +122,44 @@ module.exports = async (req, res) => {
     return res.status(405).end();
   }
 
+  // ── CUENTAS DE COBRO ──────────────────────────────────
+  // Las cuentas donde los jugadores transfieren. El operador elige cuál está
+  // activa; el bot muestra esa. La conciliación con la wallet mira todas.
+  if (slug === 'cash-accounts') {
+    if (req.method === 'GET') {
+      const { data, error } = await client.from('portal_cash_accounts').select('*').order('created_at', { ascending: true });
+      if (error) return res.status(500).json({ error: 'Error interno' });
+      return res.status(200).json({ data });
+    }
+    if (req.method === 'POST') {
+      const { bank_name, cbu, alias, account_name } = req.body;
+      if (!cbu && !alias) return res.status(400).json({ error: 'Ingresá al menos un CBU o alias' });
+      const { data, error } = await client.from('portal_cash_accounts')
+        .insert({ bank_name, cbu, alias, account_name }).select().single();
+      if (error) return res.status(500).json({ error: 'Error interno' });
+      return res.status(201).json({ ok: true, account: data });
+    }
+    if (req.method === 'PUT') {
+      const { id, is_active, bank_name, cbu, alias, account_name } = req.body;
+      if (!id) return res.status(400).json({ error: 'Falta id' });
+      if (is_active === true) {
+        // Una sola activa a la vez
+        await client.from('portal_cash_accounts').update({ is_active: false }).neq('id', id);
+      }
+      const updates = {};
+      if (typeof is_active === 'boolean') updates.is_active = is_active;
+      if (bank_name !== undefined) updates.bank_name = bank_name;
+      if (cbu !== undefined) updates.cbu = cbu;
+      if (alias !== undefined) updates.alias = alias;
+      if (account_name !== undefined) updates.account_name = account_name;
+      if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nada para actualizar' });
+      const { error } = await client.from('portal_cash_accounts').update(updates).eq('id', id);
+      if (error) return res.status(500).json({ error: 'Error interno' });
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(405).end();
+  }
+
   // ── CHATS ─────────────────────────────────────────────
   if (slug === 'chats') {
     if (req.method === 'GET') {

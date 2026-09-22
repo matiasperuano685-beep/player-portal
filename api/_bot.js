@@ -28,6 +28,24 @@ async function getSettings(client) {
   return data || {};
 }
 
+// Cuenta donde el jugador tiene que transferir. El operador elige cuál está
+// activa desde el CRM (portal_cash_accounts). Si todavía no hay cuentas
+// cargadas, cae a los datos de portal_settings, que es lo de siempre.
+async function getActiveAccount(client, settings) {
+  try {
+    const { data } = await client.from('portal_cash_accounts')
+      .select('bank_name, cbu, alias, account_name')
+      .eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (data && (data.cbu || data.alias)) return data;
+  } catch { /* la tabla puede no existir todavía */ }
+  return {
+    bank_name: settings.bank_name || null,
+    cbu: settings.bank_cbu || null,
+    alias: settings.bank_alias || null,
+    account_name: settings.bank_account_name || null,
+  };
+}
+
 async function getOrCreateChat(client, playerId) {
   const { data: chats } = await client.from('portal_chats').select('*').eq('player_id', playerId).order('created_at', { ascending: true }).limit(1);
   if (chats?.length) return chats[0];
@@ -58,26 +76,27 @@ async function botSay(client, chatId, body, meta) {
   return msg;
 }
 
-function bankLines(s) {
+function bankLines(a) {
   return [
-    s.bank_name && `🏦 Banco: ${s.bank_name}`,
-    s.bank_cbu && `📋 CBU: ${s.bank_cbu}`,
-    s.bank_alias && `🔤 Alias: ${s.bank_alias}`,
-    s.bank_account_name && `👤 Titular: ${s.bank_account_name}`,
+    a.bank_name && `🏦 Banco: ${a.bank_name}`,
+    a.cbu && `📋 CBU: ${a.cbu}`,
+    a.alias && `🔤 Alias: ${a.alias}`,
+    a.account_name && `👤 Titular: ${a.account_name}`,
   ].filter(Boolean).join('\n');
 }
 
 // Respuesta del bot a un botón. Devuelve los mensajes que insertó.
 async function replyToAction(client, { chatId, playerId, action, settings }) {
   if (action === 'cargar') {
-    if (!settings.bank_cbu && !settings.bank_alias) {
+    const cuenta = await getActiveAccount(client, settings);
+    if (!cuenta.cbu && !cuenta.alias) {
       return [await botSay(client, chatId, 'En este momento no hay una cuenta cargada para transferir. Un operador te responde en breve 🙏', { type: 'text' })];
     }
-    const body = `💰 Transferí a estos datos y después subí el comprobante 👇\n\n${bankLines(settings)}` +
+    const body = `💰 Transferí a estos datos y después subí el comprobante 👇\n\n${bankLines(cuenta)}` +
       (settings.min_deposit ? `\n\nMínimo de carga: $${money(settings.min_deposit)}` : '');
     return [await botSay(client, chatId, body, {
       type: 'deposit_instructions',
-      bank: { name: settings.bank_name || null, cbu: settings.bank_cbu || null, alias: settings.bank_alias || null, holder: settings.bank_account_name || null },
+      bank: { name: cuenta.bank_name || null, cbu: cuenta.cbu || null, alias: cuenta.alias || null, holder: cuenta.account_name || null },
       min_deposit: Number(settings.min_deposit || 0),
     })];
   }
@@ -172,6 +191,6 @@ async function notifyTransactionResult(client, tx, action, operatorNotes) {
 }
 
 module.exports = {
-  money, botActive, getSettings, getOrCreateChat, insertMessage, touchChat, botSay,
+  money, botActive, getSettings, getActiveAccount, getOrCreateChat, insertMessage, touchChat, botSay,
   replyToAction, maybeWelcome, signMessageUrls, signPaths, uploadComprobante, notifyTransactionResult,
 };
