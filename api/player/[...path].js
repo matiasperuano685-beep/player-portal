@@ -30,6 +30,11 @@ module.exports = async (req, res) => {
   // ── REGISTER ───────────────────────────────────────────
   if (slug === 'register') {
     if (req.method !== 'POST') return res.status(405).end();
+    // El alta la hace un operador desde el CRM: el jugador pide su usuario por
+    // WhatsApp. Se puede reabrir con ALLOW_PUBLIC_REGISTER=true.
+    if (process.env.ALLOW_PUBLIC_REGISTER !== 'true') {
+      return res.status(403).json({ error: 'Para crear tu cuenta escribinos por WhatsApp y un operador te la genera.' });
+    }
     if (rateLimit(req, 5, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
     try {
       const { username, password, full_name, whatsapp } = req.body;
