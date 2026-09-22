@@ -221,7 +221,7 @@ module.exports = async (req, res) => {
   }
 
   // ── CHAT: CARGA CON COMPROBANTE ───────────────────────
-  if (slug === 'chat/deposit') {
+  if (slug === 'chat-deposit' || slug === 'chat/deposit') {
     if (req.method !== 'POST') return res.status(405).end();
     try {
       const { amount, imageBase64, mimeType } = req.body;
@@ -249,7 +249,7 @@ module.exports = async (req, res) => {
   }
 
   // ── CHAT: RETIRO ──────────────────────────────────────
-  if (slug === 'chat/withdraw') {
+  if (slug === 'chat-withdraw' || slug === 'chat/withdraw') {
     if (req.method !== 'POST') return res.status(405).end();
     try {
       const { amount } = req.body;

@@ -1398,7 +1398,7 @@ async function chatDepositSubmit(id) {
   try {
     const isPdf = file.type === 'application/pdf';
     const blob = isPdf ? file : await compressImage(file);
-    const r = await authFetch('/api/player/chat/deposit', {
+    const r = await authFetch('/api/player/chat-deposit', {
       method: 'POST',
       body: JSON.stringify({ amount, imageBase64: await fileToBase64(blob), mimeType: isPdf ? 'application/pdf' : 'image/jpeg' })
     });
@@ -1419,7 +1419,7 @@ async function chatWithdrawSubmit(id) {
   if (!amount || amount <= 0) return chatFormError('wit', id, 'Ingresá un monto');
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
-    const r = await authFetch('/api/player/chat/withdraw', { method: 'POST', body: JSON.stringify({ amount }) });
+    const r = await authFetch('/api/player/chat-withdraw', { method: 'POST', body: JSON.stringify({ amount }) });
     const j = await r.json();
     if (j.error) throw new Error(j.error);
     document.getElementById('wit-form-' + id).innerHTML = '<div class="bot-done">✅ Pedido enviado</div>';
