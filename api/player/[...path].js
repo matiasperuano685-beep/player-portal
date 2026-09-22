@@ -183,6 +183,14 @@ module.exports = async (req, res) => {
         return res.status(200).json({
           chat_id: chat.id,
           bot_active: bot.botActive(settings, claim.username, chat),
+          // Diagnóstico (solo booleanos, sin datos sensibles): ayuda a ver por qué
+          // el bot no responde — apagado en general, en este chat, o sin lista de prueba.
+          bot_debug: {
+            global: !!settings?.bot_enabled,
+            este_chat: chat?.bot_enabled !== false,
+            hay_lista_de_prueba: !!(process.env.BOT_TEST_USERS || '').trim(),
+            estoy_en_la_lista: (process.env.BOT_TEST_USERS || '').split(',').map(s => s.trim().toLowerCase()).includes(String(claim.username || '').toLowerCase()),
+          },
           messages: await bot.signMessageUrls(client, messages || []),
         });
       } catch { return res.status(500).json({ error: 'Error interno' }); }
