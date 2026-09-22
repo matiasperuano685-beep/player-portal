@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const webpush = require('web-push');
 const { db, cors } = require('../_lib');
+const bot = require('../_bot');
 
 webpush.setVapidDetails(
   'mailto:admin@capibet.com',
@@ -69,17 +70,18 @@ module.exports = async (req, res) => {
   if (slug === 'transactions') {
     if (req.method === 'GET') {
       const status = req.query.status || 'pending';
-      let query = client.from('portal_transactions').select(`id, type, amount, status, notes, operator_notes, created_at, updated_at, portal_players (id, username, full_name, whatsapp, casino_username, balance)`).order('created_at', { ascending: false });
+      let query = client.from('portal_transactions').select(`id, type, amount, status, notes, operator_notes, comprobante_path, chat_id, created_at, updated_at, portal_players (id, username, full_name, whatsapp, casino_username, balance)`).order('created_at', { ascending: false });
       if (status !== 'all') query = query.eq('status', status);
       const { data, error } = await query.limit(200);
       if (error) return res.status(500).json({ error: 'Error interno' });
-      return res.status(200).json({ data });
+      const urls = await bot.signPaths(client, (data || []).map(t => t.comprobante_path));
+      return res.status(200).json({ data: (data || []).map(t => ({ ...t, comprobante_url: urls.get(t.comprobante_path) || null })) });
     }
     if (req.method === 'PUT') {
       const { id, action, operator_notes } = req.body;
       if (!id || !action) return res.status(400).json({ error: 'Faltan datos' });
       if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'Acción inválida' });
-      const { data: tx, error: txErr } = await client.from('portal_transactions').select('*, portal_players(id, balance)').eq('id', id).single();
+      const { data: tx, error: txErr } = await client.from('portal_transactions').select('*, portal_players(id, balance, username)').eq('id', id).single();
       if (txErr || !tx) return res.status(404).json({ error: 'Transacción no encontrada' });
       if (tx.status !== 'pending') return res.status(409).json({ error: 'La transacción ya fue procesada' });
       const newStatus = action === 'approve' ? 'approved' : 'rejected';
@@ -89,6 +91,14 @@ module.exports = async (req, res) => {
         const delta = tx.type === 'deposit' ? Number(tx.amount) : -Number(tx.amount);
         await client.from('portal_players').update({ balance: Math.max(0, Number(player.balance || 0) + delta) }).eq('id', player.id);
       }
+      try {
+        const settings = await bot.getSettings(client);
+        const chat = await bot.getOrCreateChat(client, tx.player_id);
+        if (bot.botActive(settings, tx.portal_players?.username, chat)) {
+          const note = await bot.notifyTransactionResult(client, tx, action, operator_notes);
+          if (note) await sendPushToPlayer(client, tx.player_id, '💬 Novedades de tu cuenta', note.body.split('\n')[0]);
+        }
+      } catch (e) { console.error('bot notify', e); }
       return res.status(200).json({ ok: true });
     }
     return res.status(405).end();
@@ -101,9 +111,10 @@ module.exports = async (req, res) => {
       return res.status(200).json({ settings: data });
     }
     if (req.method === 'PUT') {
-      const { whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name } = req.body;
+      const { whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name, bot_enabled } = req.body;
       const { data: existing } = await client.from('portal_settings').select('id').limit(1).maybeSingle();
       const payload = { whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name };
+      if (typeof bot_enabled === 'boolean') payload.bot_enabled = bot_enabled;
       if (existing) { await client.from('portal_settings').update(payload).eq('id', existing.id); }
       else { await client.from('portal_settings').insert(payload); }
       return res.status(200).json({ ok: true });
@@ -119,9 +130,10 @@ module.exports = async (req, res) => {
         await client.from('portal_chats').update({ unread_operator: 0 }).eq('id', chat_id);
         const offset = parseInt(req.query.offset) || 0;
         const limit = Math.min(parseInt(req.query.limit) || 1000, 2000);
-        const { data: messages, count } = await client.from('portal_chat_messages').select('id, sender, body, created_at', { count: 'exact' }).eq('chat_id', chat_id).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-        const sorted = (messages || []).reverse();
-        return res.status(200).json({ messages: sorted, total: count, offset, limit });
+        const { data: messages, count } = await client.from('portal_chat_messages').select('id, sender, body, meta, created_at', { count: 'exact' }).eq('chat_id', chat_id).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+        const sorted = await bot.signMessageUrls(client, (messages || []).reverse());
+        const { data: chatRow } = await client.from('portal_chats').select('bot_enabled').eq('id', chat_id).maybeSingle();
+        return res.status(200).json({ messages: sorted, total: count, offset, limit, bot_enabled: chatRow?.bot_enabled !== false });
       }
       const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false }).limit(80);
       if (!chats) return res.status(200).json({ chats: [] });
@@ -146,6 +158,14 @@ module.exports = async (req, res) => {
       await client.from('portal_chats').update({ last_message_at: new Date().toISOString(), unread_operator: 0, unread_player: (chatRow?.unread_player || 0) + 1 }).eq('id', chat_id);
       if (chatRow?.player_id) await sendPushToPlayer(client, chatRow.player_id, '🎧 CapiBet Soporte', body.trim());
       return res.status(201).json({ ok: true, message: msg });
+    }
+    // Prender/apagar el bot en una conversación (desde Chat Jugadores del CRM)
+    if (req.method === 'PUT') {
+      const { chat_id, bot_enabled } = req.body;
+      if (!chat_id || typeof bot_enabled !== 'boolean') return res.status(400).json({ error: 'Faltan datos' });
+      const { error } = await client.from('portal_chats').update({ bot_enabled }).eq('id', chat_id);
+      if (error) return res.status(500).json({ error: 'Error interno' });
+      return res.status(200).json({ ok: true, bot_enabled });
     }
     return res.status(405).end();
   }

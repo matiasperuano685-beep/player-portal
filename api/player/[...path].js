@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { db, signToken, verifyToken, cors, rateLimit } = require('../_lib');
+const bot = require('../_bot');
 
 module.exports = async (req, res) => {
   cors(res, req);
@@ -29,6 +30,11 @@ module.exports = async (req, res) => {
   // ── REGISTER ───────────────────────────────────────────
   if (slug === 'register') {
     if (req.method !== 'POST') return res.status(405).end();
+    // El alta la hace un operador desde el CRM: el jugador pide su usuario por
+    // WhatsApp. Se puede reabrir con ALLOW_PUBLIC_REGISTER=true.
+    if (process.env.ALLOW_PUBLIC_REGISTER !== 'true') {
+      return res.status(403).json({ error: 'Para crear tu cuenta escribinos por WhatsApp y un operador te la genera.' });
+    }
     if (rateLimit(req, 5, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
     try {
       const { username, password, full_name, whatsapp } = req.body;
@@ -170,36 +176,102 @@ module.exports = async (req, res) => {
   if (slug === 'chat') {
     if (req.method === 'GET') {
       try {
-        let { data: chats } = await client.from('portal_chats').select('*').eq('player_id', claim.id).order('created_at', { ascending: true });
-        let chat = chats?.[0] || null;
-        if (!chat) {
-          const { data: newChat } = await client.from('portal_chats').insert({ player_id: claim.id }).select().single();
-          chat = newChat;
-        } else {
-          await client.from('portal_chats').update({ unread_player: 0 }).eq('id', chat.id);
-        }
-        const { data: messages } = await client.from('portal_chat_messages').select('id, sender, body, created_at').eq('chat_id', chat.id).order('created_at', { ascending: true }).limit(200);
-        return res.status(200).json({ chat_id: chat.id, messages: messages || [] });
+        const chat = await bot.getOrCreateChat(client, claim.id);
+        await client.from('portal_chats').update({ unread_player: 0 }).eq('id', chat.id);
+        const { data: messages } = await client.from('portal_chat_messages').select('id, sender, body, meta, created_at').eq('chat_id', chat.id).order('created_at', { ascending: true }).limit(200);
+        const settings = await bot.getSettings(client);
+        return res.status(200).json({
+          chat_id: chat.id,
+          bot_active: bot.botActive(settings, claim.username, chat),
+          // Diagnóstico (solo booleanos, sin datos sensibles): ayuda a ver por qué
+          // el bot no responde — apagado en general, en este chat, o sin lista de prueba.
+          bot_debug: {
+            global: !!settings?.bot_enabled,
+            este_chat: chat?.bot_enabled !== false,
+            hay_lista_de_prueba: !!(process.env.BOT_TEST_USERS || '').trim(),
+            estoy_en_la_lista: (process.env.BOT_TEST_USERS || '').split(',').map(s => s.trim().toLowerCase()).includes(String(claim.username || '').toLowerCase()),
+          },
+          messages: await bot.signMessageUrls(client, messages || []),
+        });
       } catch { return res.status(500).json({ error: 'Error interno' }); }
     }
     if (req.method === 'POST') {
       try {
-        const { body, chat_id } = req.body;
-        if (!body?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
-        let chatId = chat_id;
-        if (!chatId) {
-          let { data: chats } = await client.from('portal_chats').select('id').eq('player_id', claim.id).order('created_at', { ascending: true });
-          if (!chats?.length) { const { data: nc } = await client.from('portal_chats').insert({ player_id: claim.id }).select().single(); chatId = nc.id; }
-          else { chatId = chats[0].id; }
+        const { body, action } = req.body;
+        const labels = { cargar: '💰 Quiero cargar', retirar: '💸 Quiero retirar', soporte: '🎧 Necesito ayuda' };
+        if (action && !labels[action]) return res.status(400).json({ error: 'Acción inválida' });
+        const text = action ? labels[action] : body?.trim();
+        if (!text) return res.status(400).json({ error: 'Mensaje vacío' });
+        const chat = await bot.getOrCreateChat(client, claim.id);
+        const msg = await bot.insertMessage(client, chat.id, 'player', text, action ? { action } : null);
+        await bot.touchChat(client, chat.id, 'player');
+        let replies = [];
+        const settings = await bot.getSettings(client);
+        if (bot.botActive(settings, claim.username, chat)) {
+          try {
+            replies = action
+              ? await bot.replyToAction(client, { chatId: chat.id, playerId: claim.id, action, settings })
+              : await bot.maybeWelcome(client, chat.id);
+          } catch (e) { console.error('bot reply', e); }
         }
-        const { data: msg, error } = await client.from('portal_chat_messages').insert({ chat_id: chatId, sender: 'player', body: body.trim() }).select().single();
-        if (error) throw error;
-        const { data: chatRow } = await client.from('portal_chats').select('unread_operator').eq('id', chatId).single();
-        await client.from('portal_chats').update({ last_message_at: new Date().toISOString(), unread_operator: (chatRow?.unread_operator || 0) + 1 }).eq('id', chatId);
-        return res.status(201).json({ ok: true, message: msg });
+        return res.status(201).json({ ok: true, message: msg, replies });
       } catch { return res.status(500).json({ error: 'Error interno' }); }
     }
     return res.status(405).end();
+  }
+
+  // ── CHAT: CARGA CON COMPROBANTE ───────────────────────
+  if (slug === 'chat-deposit' || slug === 'chat/deposit') {
+    if (req.method !== 'POST') return res.status(405).end();
+    try {
+      const { amount, imageBase64, mimeType } = req.body;
+      if (!amount || isNaN(amount) || Number(amount) <= 0) return res.status(400).json({ error: 'Ingresá el monto que transferiste' });
+      if (!imageBase64 || !mimeType) return res.status(400).json({ error: 'Adjuntá el comprobante' });
+      const settings = await bot.getSettings(client);
+      if (Number(amount) < Number(settings.min_deposit || 0)) return res.status(400).json({ error: `El monto mínimo de carga es $${bot.money(settings.min_deposit)}` });
+      const file = await bot.uploadComprobante(client, claim.id, imageBase64, mimeType);
+      const chat = await bot.getOrCreateChat(client, claim.id);
+      const { data: tx, error: txErr } = await client.from('portal_transactions')
+        .insert({ player_id: claim.id, type: 'deposit', amount: Number(amount), status: 'pending', comprobante_path: file.path, chat_id: chat.id })
+        .select().single();
+      if (txErr) throw txErr;
+      const isPdf = mimeType === 'application/pdf';
+      const body = `💰 SOLICITUD DE CARGA\n💵 Monto: $${bot.money(amount)}\n${isPdf ? '📄 Comprobante PDF: ' : ''}${file.url}`;
+      const msg = await bot.insertMessage(client, chat.id, 'player', body, { type: 'comprobante', tx_id: tx.id, amount: Number(amount) });
+      await bot.touchChat(client, chat.id, 'player');
+      const replies = [await bot.botSay(client, chat.id, `⏳ Recibimos tu comprobante por $${bot.money(amount)}. Lo estamos verificando y te avisamos por acá.`, { type: 'status', tx_id: tx.id })];
+      return res.status(201).json({ ok: true, messages: await bot.signMessageUrls(client, [msg, ...replies]) });
+    } catch (e) {
+      if (e.status === 400) return res.status(400).json({ error: e.message });
+      console.error('chat/deposit', e);
+      return res.status(500).json({ error: 'Error interno' });
+    }
+  }
+
+  // ── CHAT: RETIRO ──────────────────────────────────────
+  if (slug === 'chat-withdraw' || slug === 'chat/withdraw') {
+    if (req.method !== 'POST') return res.status(405).end();
+    try {
+      const { amount } = req.body;
+      if (!amount || isNaN(amount) || Number(amount) <= 0) return res.status(400).json({ error: 'Monto inválido' });
+      const settings = await bot.getSettings(client);
+      if (Number(amount) < Number(settings.min_withdrawal || 0)) return res.status(400).json({ error: `El monto mínimo de retiro es $${bot.money(settings.min_withdrawal)}` });
+      const { data: bank } = await client.from('portal_bank_accounts').select('bank_name, cbu, alias, account_name').eq('player_id', claim.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (!bank) return res.status(400).json({ error: 'Debés cargar tu cuenta bancaria antes de retirar' });
+      const chat = await bot.getOrCreateChat(client, claim.id);
+      const { data: tx, error: txErr } = await client.from('portal_transactions')
+        .insert({ player_id: claim.id, type: 'withdrawal', amount: Number(amount), status: 'pending', chat_id: chat.id })
+        .select().single();
+      if (txErr) throw txErr;
+      const bankInfo = [`🏦 Banco: ${bank.bank_name || '—'}`, `📋 CBU: ${bank.cbu || '—'}`, `🔤 Alias: ${bank.alias || '—'}`, `👤 Titular: ${bank.account_name || '—'}`].join('\n');
+      const msg = await bot.insertMessage(client, chat.id, 'player', `💸 SOLICITUD DE RETIRO\n💵 Monto: $${bot.money(amount)}\n${bankInfo}`, { type: 'withdraw_request', tx_id: tx.id, amount: Number(amount) });
+      await bot.touchChat(client, chat.id, 'player');
+      const replies = [await bot.botSay(client, chat.id, `⏳ Recibimos tu pedido de retiro por $${bot.money(amount)}. Un operador lo procesa y te avisamos por acá.`, { type: 'status', tx_id: tx.id })];
+      return res.status(201).json({ ok: true, messages: [msg, ...replies] });
+    } catch (e) {
+      console.error('chat/withdraw', e);
+      return res.status(500).json({ error: 'Error interno' });
+    }
   }
 
   return res.status(404).json({ error: 'Ruta no encontrada' });
