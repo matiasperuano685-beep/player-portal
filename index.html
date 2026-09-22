@@ -319,6 +319,21 @@
   #chat-send-btn:hover { box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
   #chat-send-btn:disabled { background: var(--card2); color: var(--muted); cursor: not-allowed; box-shadow: none; }
   .chat-status { font-size: 0.75rem; color: var(--muted); text-align: center; padding: 6px 0; }
+  .chat-msg.bot { max-width: 92%; }
+  .bot-card { margin-top: 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .bot-row { display: flex; justify-content: space-between; gap: 10px; font-size: 0.85rem; padding: 3px 0; }
+  .bot-row span:first-child { color: var(--muted); flex-shrink: 0; white-space: nowrap; }
+  .bot-row span:last-child { font-weight: 600; text-align: right; word-break: break-all; }
+  .bot-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .bot-btn { background: transparent; border: 1px solid var(--gold-dark); color: var(--gold); border-radius: 10px; padding: 10px; font-size: 0.88rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .bot-btn.primary { background: linear-gradient(135deg, var(--gold-dark), var(--gold)); color: #000; border: none; }
+  .bot-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .bot-input { width: 100%; box-sizing: border-box; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 10px 12px; font-size: 0.95rem; font-family: inherit; outline: none; }
+  .bot-input:focus { border-color: var(--gold-dark); }
+  .bot-file { display: block; text-align: center; border: 1px dashed var(--border); border-radius: 10px; padding: 10px; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+  .bot-file.has-file { border-color: var(--gold-dark); color: var(--text); }
+  .bot-error { color: #f87171; font-size: 0.8rem; display: none; }
+  .bot-done { font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
 
   /* ─── SUPPORT INTRO ─────────────────────────────────── */
   .support-intro {
@@ -728,9 +743,9 @@
       </div>
     </div>
     <div class="quick-replies">
-      <button class="quick-btn" onclick="chatQuickSend('💰 Quiero cargar saldo')">💰 Carga</button>
-      <button class="quick-btn" onclick="chatQuickSend('💸 Quiero retirar saldo')">💸 Retiro</button>
-      <button class="quick-btn" onclick="chatQuickSend('❓ Tengo una consulta')">❓ Consulta</button>
+      <button class="quick-btn" onclick="chatAction('cargar', '💰 Quiero cargar saldo')">💰 Cargar</button>
+      <button class="quick-btn" onclick="chatAction('retirar', '💸 Quiero retirar saldo')">💸 Retirar</button>
+      <button class="quick-btn" onclick="chatAction('soporte', '❓ Tengo una consulta')">🎧 Soporte</button>
     </div>
     <div class="card" style="padding-bottom:8px">
       <div id="chat-window">
@@ -1211,6 +1226,7 @@ async function chatInit() {
     const j = await r.json();
     if (j.error) throw new Error(j.error);
     chatId = j.chat_id;
+    chatBotActive = !!j.bot_active;
     renderChatMessages(j.messages);
     setChatStatus('');
     startChatPoll();
@@ -1256,28 +1272,177 @@ function startChatPoll() {
       const r = await authFetch('/api/player/chat');
       const j = await r.json();
       if (j.error) return;
-      const msgs = j.messages || [];
-      const lastShown = document.querySelector('#chat-messages .chat-msg:last-child')?.dataset?.id;
-      const lastFetched = msgs[msgs.length - 1]?.id;
-      if (lastFetched && lastFetched !== lastShown) renderChatMessages(msgs);
+      chatBotActive = !!j.bot_active;
+      // Solo agregar los mensajes nuevos: re-renderizar todo borraría lo que el
+      // jugador esté escribiendo en un formulario del bot.
+      (j.messages || []).forEach(appendChatMessage);
     } catch {}
-  }, 3000); // Menos frecuente que antes (8s en lugar de 4s)
+  }, 3000);
 }
 
 function renderChatMessages(messages) {
   const el = document.getElementById('chat-messages');
   if (!messages || messages.length === 0) {
-    el.innerHTML = '<div class="chat-empty">👋 ¡Hola! Contanos en qué te podemos ayudar y un operador te responderá a la brevedad.</div>';
+    el.innerHTML = chatBotActive
+      ? '<div class="chat-empty">👋 ¡Hola! Tocá <b>Cargar</b>, <b>Retirar</b> o <b>Soporte</b>, o escribinos tu consulta.</div>'
+      : '<div class="chat-empty">👋 ¡Hola! Contanos en qué te podemos ayudar y un operador te responderá a la brevedad.</div>';
     return;
   }
-  el.innerHTML = messages.map(m => {
-    const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-    return `<div class="chat-msg ${m.sender}" data-id="${m.id}">
-      ${formatChatBody(m.body)}
-      <div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>
-    </div>`;
-  }).join('');
+  el.innerHTML = '';
+  messages.forEach(appendChatMessage);
   el.scrollTop = el.scrollHeight;
+}
+
+// ─── Mensajes del bot ────────────────────────────────────
+let chatBotActive = false;
+
+function chatMsgInner(m) {
+  const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const isBot = m.meta && m.meta.bot;
+  const icon = isBot ? '🤖 ' : (m.sender === 'operator' ? '🎧 ' : '');
+  return `${isBot ? botWidget(m) : formatChatBody(m.body)}<div class="chat-time">${icon}${t}</div>`;
+}
+
+function botRow(label, value) {
+  return value ? `<div class="bot-row"><span>${esc(label)}</span><span>${esc(value)}</span></div>` : '';
+}
+
+function botWidget(m) {
+  const meta = m.meta || {};
+  const id = esc(m.id);
+  if (meta.type === 'deposit_instructions') {
+    const b = meta.bank || {};
+    return `Transferí a estos datos y después subí el comprobante 👇
+      <div class="bot-card">
+        ${botRow('Banco', b.name)}${botRow('CBU', b.cbu)}${botRow('Alias', b.alias)}${botRow('Titular', b.holder)}
+        <div class="bot-actions">
+          ${b.cbu ? `<button class="bot-btn" data-copy="${esc(b.cbu)}" onclick="chatCopy(this.dataset.copy)">📋 Copiar CBU</button>` : ''}
+          ${b.alias ? `<button class="bot-btn" data-copy="${esc(b.alias)}" onclick="chatCopy(this.dataset.copy)">📋 Copiar alias</button>` : ''}
+        </div>
+      </div>
+      <div class="bot-card" id="dep-form-${id}">
+        <div class="bot-actions" style="margin-top:0">
+          <input class="bot-input" type="number" inputmode="numeric" min="1" id="dep-amt-${id}" placeholder="¿Cuánto transferiste? $">
+          ${meta.min_deposit ? '<div class="bot-done" style="margin-top:0">Mínimo $' + formatMoney(meta.min_deposit) + '</div>' : ''}
+          <label class="bot-file" id="dep-lbl-${id}">📎 Elegir comprobante
+            <input type="file" accept="image/*,application/pdf" id="dep-file-${id}" style="display:none" onchange="chatFilePicked('${id}')">
+          </label>
+          <div class="bot-error" id="dep-err-${id}"></div>
+          <button class="bot-btn primary" id="dep-btn-${id}" onclick="chatDepositSubmit('${id}')">SUBIR COMPROBANTE</button>
+        </div>
+      </div>`;
+  }
+  if (meta.type === 'withdraw_form') {
+    const b = meta.bank || {};
+    return `💸 ¿Cuánto querés retirar? Te lo mandamos a:
+      <div class="bot-card">
+        ${botRow('Banco', b.bank_name)}${botRow('CBU', b.cbu)}${botRow('Alias', b.alias)}${botRow('Titular', b.account_name)}
+      </div>
+      <div class="bot-card" id="wit-form-${id}">
+        <div class="bot-actions" style="margin-top:0">
+          <input class="bot-input" type="number" inputmode="numeric" min="1" id="wit-amt-${id}" placeholder="Monto a retirar $">
+          ${meta.min_withdrawal ? '<div class="bot-done" style="margin-top:0">Mínimo $' + formatMoney(meta.min_withdrawal) + '</div>' : ''}
+          <div class="bot-error" id="wit-err-${id}"></div>
+          <button class="bot-btn primary" id="wit-btn-${id}" onclick="chatWithdrawSubmit('${id}')">PEDIR RETIRO</button>
+        </div>
+      </div>`;
+  }
+  if (meta.type === 'need_bank') {
+    return `${formatChatBody(m.body)}<div class="bot-actions"><button class="bot-btn primary" onclick="goPage('bank')">🏦 Cargar mi cuenta</button></div>`;
+  }
+  if (meta.type === 'menu') {
+    return `${formatChatBody(m.body)}<div class="bot-actions">
+      <button class="bot-btn primary" onclick="chatAction('cargar')">💰 CARGAR</button>
+      <button class="bot-btn" onclick="chatAction('retirar')">💸 RETIRAR</button>
+      <button class="bot-btn" onclick="chatAction('soporte')">🎧 SOPORTE</button>
+    </div>`;
+  }
+  return formatChatBody(m.body);
+}
+
+function chatCopy(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Copiado: ' + text)).catch(() => showToast('❌ No se pudo copiar'));
+}
+
+function chatFilePicked(id) {
+  const input = document.getElementById('dep-file-' + id);
+  const label = document.getElementById('dep-lbl-' + id);
+  const f = input.files && input.files[0];
+  label.firstChild.textContent = f ? '✅ ' + f.name : '📎 Elegir comprobante';
+  label.classList.toggle('has-file', !!f);
+}
+
+function chatFormError(prefix, id, msg) {
+  const el = document.getElementById(prefix + '-err-' + id);
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function fileToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function chatDepositSubmit(id) {
+  const amount = Number(document.getElementById('dep-amt-' + id).value);
+  const file = document.getElementById('dep-file-' + id).files[0];
+  const btn = document.getElementById('dep-btn-' + id);
+  chatFormError('dep', id, null);
+  if (!amount || amount <= 0) return chatFormError('dep', id, 'Ingresá el monto que transferiste');
+  if (!file) return chatFormError('dep', id, 'Elegí la foto o el PDF del comprobante');
+  btn.disabled = true; btn.textContent = 'Subiendo...';
+  try {
+    const isPdf = file.type === 'application/pdf';
+    const blob = isPdf ? file : await compressImage(file);
+    const r = await authFetch('/api/player/chat/deposit', {
+      method: 'POST',
+      body: JSON.stringify({ amount, imageBase64: await fileToBase64(blob), mimeType: isPdf ? 'application/pdf' : 'image/jpeg' })
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    document.getElementById('dep-form-' + id).innerHTML = '<div class="bot-done">✅ Comprobante enviado</div>';
+    (j.messages || []).forEach(appendChatMessage);
+  } catch (e) {
+    chatFormError('dep', id, e.message || 'No se pudo enviar');
+    btn.disabled = false; btn.textContent = 'SUBIR COMPROBANTE';
+  }
+}
+
+async function chatWithdrawSubmit(id) {
+  const amount = Number(document.getElementById('wit-amt-' + id).value);
+  const btn = document.getElementById('wit-btn-' + id);
+  chatFormError('wit', id, null);
+  if (!amount || amount <= 0) return chatFormError('wit', id, 'Ingresá un monto');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const r = await authFetch('/api/player/chat/withdraw', { method: 'POST', body: JSON.stringify({ amount }) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    document.getElementById('wit-form-' + id).innerHTML = '<div class="bot-done">✅ Pedido enviado</div>';
+    (j.messages || []).forEach(appendChatMessage);
+  } catch (e) {
+    chatFormError('wit', id, e.message || 'No se pudo enviar');
+    btn.disabled = false; btn.textContent = 'PEDIR RETIRO';
+  }
+}
+
+// Botones CARGAR / RETIRAR / SOPORTE. Si el bot está apagado, mandan el texto
+// de siempre para que un operador responda como hasta ahora.
+async function chatAction(action, fallbackText) {
+  if (!chatBotActive) { if (fallbackText) await chatQuickSend(fallbackText); return; }
+  try {
+    const r = await authFetch('/api/player/chat', { method: 'POST', body: JSON.stringify({ action }) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    if (j.message) appendChatMessage(j.message);
+    (j.replies || []).forEach(appendChatMessage);
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
 }
 
 function escHtml(s) {
@@ -1298,12 +1463,13 @@ function formatChatBody(s) {
 
 function appendChatMessage(m) {
   const el = document.getElementById('chat-messages');
+  if (m.id && el.querySelector(`.chat-msg[data-id="${CSS.escape(String(m.id))}"]`)) return;
   const empty = el.querySelector('.chat-empty');
   if (empty) empty.remove();
-  const t = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   const div = document.createElement('div');
-  div.className = `chat-msg ${m.sender}`;
-  div.innerHTML = `${formatChatBody(m.body)}<div class="chat-time">${m.sender === 'operator' ? '🎧 ' : ''}${t}</div>`;
+  div.className = `chat-msg ${m.sender}${m.meta && m.meta.bot ? ' bot' : ''}`;
+  if (m.id) div.dataset.id = m.id;
+  div.innerHTML = chatMsgInner(m);
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
@@ -1326,6 +1492,7 @@ async function chatSend() {
     input.value = '';
     input.style.height = 'auto';
     if (j.message) appendChatMessage(j.message);
+    (j.replies || []).forEach(appendChatMessage);
   } catch(e) {
     showToast('❌ ' + e.message);
   } finally {
