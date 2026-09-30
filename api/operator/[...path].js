@@ -59,7 +59,14 @@ module.exports = async (req, res) => {
       if (full_name) updates.full_name = full_name;
       if (whatsapp !== undefined) updates.whatsapp = whatsapp;
       if (password) updates.password_hash = await bcrypt.hash(password, 10);
+      // Alta de un invitado ("No tengo usuario"): al activarlo, su usuario del
+      // portal pasa a ser el del casino, así entra con los mismos datos.
+      if (status === 'active' && casino_username) {
+        const { data: cur } = await client.from('portal_players').select('status').eq('id', id).maybeSingle();
+        if (cur?.status === 'guest') updates.username = String(casino_username).toLowerCase().trim();
+      }
       const { error } = await client.from('portal_players').update(updates).eq('id', id);
+      if (error?.code === '23505') return res.status(409).json({ error: 'Ese usuario ya existe en el portal' });
       if (error) return res.status(500).json({ error: 'Error interno' });
       return res.status(200).json({ ok: true });
     }
@@ -173,7 +180,7 @@ module.exports = async (req, res) => {
         const { data: chatRow } = await client.from('portal_chats').select('bot_enabled').eq('id', chat_id).maybeSingle();
         return res.status(200).json({ messages: sorted, total: count, offset, limit, bot_enabled: chatRow?.bot_enabled !== false });
       }
-      const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp)').order('last_message_at', { ascending: false }).limit(80);
+      const { data: chats } = await client.from('portal_chats').select('*, portal_players(id, username, full_name, whatsapp, status, casino_username)').order('last_message_at', { ascending: false }).limit(80);
       if (!chats) return res.status(200).json({ chats: [] });
       // Traer último mensaje de cada chat en una sola consulta
       const chatIds = chats.map(c => c.id);

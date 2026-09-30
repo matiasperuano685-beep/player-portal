@@ -52,10 +52,51 @@ module.exports = async (req, res) => {
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }
 
+  // ── INVITADO ("No tengo usuario") ─────────────────────
+  // El jugador deja nombre y WhatsApp y entra directo al chat. Queda como
+  // status 'guest' (no puede entrar con contraseña ni cargar/retirar) hasta que
+  // un cajero le da de alta desde el CRM (Chat Jugadores → Dar de alta).
+  if (slug === 'guest') {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (rateLimit(req, 3, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
+    try {
+      const full_name = String(req.body?.full_name || '').trim().slice(0, 60);
+      const whatsappDigits = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      if (full_name.length < 2) return res.status(400).json({ error: 'Poné tu nombre' });
+      if (whatsappDigits.length < 8 || whatsappDigits.length > 15) return res.status(400).json({ error: 'Poné un número de WhatsApp válido' });
+      const client = db();
+      const crypto = require('crypto');
+      const username = 'nuevo_' + crypto.randomBytes(4).toString('hex');
+      const password_hash = await bcrypt.hash(crypto.randomBytes(18).toString('hex'), 10);
+      const { data: player, error } = await client.from('portal_players')
+        .insert({ username, password_hash, full_name, whatsapp: whatsappDigits, status: 'guest' })
+        .select().single();
+      if (error) throw error;
+      const chat = await bot.getOrCreateChat(client, player.id);
+      await bot.insertMessage(client, chat.id, 'player', `🆕 Soy nuevo y quiero crear mi usuario.\nNombre: ${full_name}\nWhatsApp: ${whatsappDigits}`, { guest_request: true });
+      await bot.touchChat(client, chat.id, 'player');
+      await bot.botSay(client, chat.id, `¡Hola ${full_name.split(' ')[0]}! 👋 Ya estás en el chat. En unos minutos un cajero te crea tu usuario y te lo manda por acá. Mientras tanto, escribinos lo que necesites.`, { guest_welcome: true });
+      const token = signToken(player);
+      return res.status(201).json({ token, player: { id: player.id, username: player.username, full_name: player.full_name, whatsapp: player.whatsapp, casino_username: null, balance: 0, status: 'guest' } });
+    } catch (e) { console.error('guest', e); return res.status(500).json({ error: 'Error interno' }); }
+  }
+
   // ── Rutas autenticadas ─────────────────────────────────
   const claim = verifyToken(req);
   if (!claim) return res.status(401).json({ error: 'No autorizado' });
   const client = db();
+
+  // Invitados (todavía sin usuario): solo chat y perfil. Se mira el estado en la
+  // base, así en cuanto el cajero lo da de alta ya puede operar sin reingresar.
+  const GUEST_BLOCKED = ['deposit', 'withdraw', 'bank', 'upload', 'chat-deposit', 'chat/deposit', 'chat-withdraw', 'chat/withdraw'];
+  let isGuest = false;
+  {
+    const { data: me } = await client.from('portal_players').select('status').eq('id', claim.id).maybeSingle();
+    isGuest = me?.status === 'guest';
+  }
+  if (isGuest && GUEST_BLOCKED.includes(slug)) {
+    return res.status(403).json({ error: 'Primero te creamos el usuario: escribinos por el chat.' });
+  }
 
   // ── ME ────────────────────────────────────────────────
   if (slug === 'me') {
@@ -207,7 +248,7 @@ module.exports = async (req, res) => {
         await bot.touchChat(client, chat.id, 'player');
         let replies = [];
         const settings = await bot.getSettings(client);
-        if (bot.botActive(settings, claim.username, chat)) {
+        if (!isGuest && bot.botActive(settings, claim.username, chat)) {
           try {
             replies = action
               ? await bot.replyToAction(client, { chatId: chat.id, playerId: claim.id, action, settings })

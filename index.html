@@ -482,10 +482,26 @@
         <button onclick="contactoWA('olvide')" style="background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:0.85rem;padding:11px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
           🔑 Olvidé mi contraseña
         </button>
-        <button onclick="contactoWA('sinusuario')" style="background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:0.85rem;padding:11px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        <button onclick="showGuestForm()" style="background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:0.85rem;padding:11px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
           ❓ No tengo usuario
         </button>
       </div>
+    </div>
+
+    <!-- INVITADO: "No tengo usuario" → directo al chat -->
+    <div id="guest-form" style="display:none">
+      <div class="auth-error" id="guest-error"></div>
+      <div style="font-size:0.9rem;color:var(--muted);margin-bottom:14px">Dejanos tu nombre y tu WhatsApp y te abrimos el chat: un cajero te crea el usuario en unos minutos.</div>
+      <div class="form-group">
+        <label>Nombre</label>
+        <input type="text" id="guest-name" placeholder="Ej: Juan" autocomplete="name" maxlength="60" />
+      </div>
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <input type="tel" id="guest-wa" placeholder="Ej: 11 2345 6789" autocomplete="tel" onkeydown="if(event.key==='Enter')doGuest()" />
+      </div>
+      <button class="btn-primary" onclick="doGuest()" id="guest-btn">Abrir el chat</button>
+      <button onclick="hideGuestForm()" style="background:none;border:none;color:var(--muted);font-size:0.85rem;margin-top:12px;cursor:pointer;width:100%">← Ya tengo usuario</button>
     </div>
 
     <!-- REGISTRO -->
@@ -868,6 +884,36 @@ async function doLogin() {
   } finally { btn.disabled = false; btn.textContent = 'Ingresar'; }
 }
 
+function showGuestForm() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('guest-form').style.display = 'block';
+  document.getElementById('guest-name').focus();
+}
+function hideGuestForm() {
+  document.getElementById('guest-form').style.display = 'none';
+  document.getElementById('login-form').style.display = 'block';
+}
+async function doGuest() {
+  const btn = document.getElementById('guest-btn');
+  document.getElementById('guest-error').style.display = 'none';
+  const full_name = document.getElementById('guest-name').value.trim();
+  const whatsapp = document.getElementById('guest-wa').value.trim();
+  if (!full_name || !whatsapp) { showAuthError('guest', 'Completá tu nombre y tu WhatsApp'); return; }
+  btn.disabled = true; btn.textContent = 'Abriendo el chat...';
+  try {
+    const r = await fetch('/api/player/guest', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ full_name, whatsapp }) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    token = j.token;
+    localStorage.setItem('portal_token', token);
+    currentPlayer = j.player;
+    await loadMeData();
+    showApp();
+  } catch(e) {
+    showAuthError('guest', e.message);
+  } finally { btn.disabled = false; btn.textContent = 'Abrir el chat'; }
+}
+
 async function doRegister() {
   const btn = document.getElementById('register-btn');
   btn.disabled = true; btn.textContent = 'Creando cuenta...';
@@ -925,6 +971,8 @@ function showApp() {
   populateProfile();
   startWinNotifications();
   registerPush();
+  // Invitado (todavía sin usuario): directo al chat.
+  if (currentPlayer?.status === 'guest') goPage('chat');
 }
 
 async function init() {
