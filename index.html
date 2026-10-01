@@ -849,6 +849,15 @@
 <div id="toast"></div>
 
 <script>
+// La landing de registro (capiok.me) manda la sesión recién creada en el hash.
+(function () {
+  const m = location.hash.match(/[#&]t=([^&]+)/);
+  if (m) {
+    try { localStorage.setItem('portal_token', decodeURIComponent(m[1])); } catch (e) {}
+    window.__openChatOnStart = /[#&]p=chat/.test(location.hash);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+})();
 let token = localStorage.getItem('portal_token');
 let currentPlayer = null;
 let currentSettings = null;
@@ -972,7 +981,7 @@ function showApp() {
   startWinNotifications();
   registerPush();
   // Invitado (todavía sin usuario): directo al chat.
-  if (currentPlayer?.status === 'guest') goPage('chat');
+  if (currentPlayer?.status === 'guest' || window.__openChatOnStart) { window.__openChatOnStart = false; goPage('chat'); }
 }
 
 async function init() {

@@ -215,6 +215,10 @@
           <label>URL del casino</label>
           <input type="text" id="s-casino-url" placeholder="https://capibet.fans/" />
         </div>
+        <div class="field">
+          <label>Bono de la página de registro (capiok.me)</label>
+          <input type="text" id="s-landing-bonus" maxlength="140" placeholder="Ej: 20% EXTRA EN TU PRIMERA CARGA (vacío = sin bono)" />
+        </div>
       </div>
       <div class="save-row">
         <button class="btn-save" onclick="saveSettings('general')">Guardar configuración</button>
@@ -376,6 +380,7 @@ function loadSettings(s) {
   document.getElementById('s-min-withdrawal').value   = s.min_withdrawal || '';
   document.getElementById('s-whatsapp').value         = s.whatsapp_number || '';
   document.getElementById('s-casino-url').value       = s.casino_url || '';
+  document.getElementById('s-landing-bonus').value    = s.landing_bonus_text || '';
 }
 
 function getPayload() {
@@ -388,6 +393,7 @@ function getPayload() {
     min_withdrawal:    Number(document.getElementById('s-min-withdrawal').value) || 0,
     whatsapp_number:   document.getElementById('s-whatsapp').value.trim(),
     casino_url:        document.getElementById('s-casino-url').value.trim(),
+    landing_bonus_text: document.getElementById('s-landing-bonus').value.trim(),
   };
 }
 

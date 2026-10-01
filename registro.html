@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>CapiBet · Creá tu cuenta</title>
+<meta name="description" content="Creá tu cuenta de CapiBet en un click y empezá a jugar." />
+<meta name="theme-color" content="#050300" />
+<link rel="icon" href="/icons/icon-192.png" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
+  :root { --gold: #f59e0b; --gold-light: #fbbf24; --gold-dark: #b45309; --bg: #050300; --card: #120c02; --text: #f5efe4; --muted: #a8a29e; --border: rgba(245,158,11,0.22); --error: #fca5a5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: radial-gradient(ellipse at top, #1c1203 0%, var(--bg) 60%); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; min-height: 100vh; display: flex; justify-content: center; padding: 28px 16px 40px; }
+  main { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .logo { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; border: 2px solid var(--gold); box-shadow: 0 0 30px rgba(245,158,11,0.35); margin-bottom: 18px; }
+  .logo img { width: 100%; height: 100%; object-fit: cover; }
+  .bonus { width: 100%; border: 1px solid var(--border); border-radius: 18px; padding: 18px 16px; margin-bottom: 22px; background: linear-gradient(160deg, rgba(245,158,11,0.16), rgba(245,158,11,0.03)); }
+  .bonus-label { font-size: 0.75rem; letter-spacing: 0.18em; color: var(--gold-light); font-weight: 700; }
+  .bonus-text { font-family: 'Oswald', sans-serif; font-size: 1.9rem; font-weight: 700; color: var(--gold); line-height: 1.15; margin-top: 6px; text-transform: uppercase; }
+  h1 { font-family: 'Oswald', sans-serif; font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 22px; }
+  .card { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 22px 18px; text-align: left; }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+  input { width: 100%; background: #0a0601; border: 1px solid #3a2c12; border-radius: 12px; color: var(--text); font-size: 1rem; padding: 14px; margin-bottom: 14px; outline: none; }
+  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+  .hint { font-size: 0.78rem; color: var(--muted); margin: -8px 0 14px; }
+  .btn { width: 100%; border: none; border-radius: 12px; padding: 16px; font-family: 'Oswald', sans-serif; font-size: 1.15rem; letter-spacing: 0.08em; color: #000; cursor: pointer; background: linear-gradient(135deg, var(--gold-dark), var(--gold-light)); box-shadow: 0 6px 22px rgba(245,158,11,0.35); }
+  .btn:disabled { opacity: 0.6; cursor: wait; }
+  .btn-ghost { background: none; color: var(--gold); border: 1px solid var(--border); box-shadow: none; margin-top: 10px; }
+  .error { display: none; background: rgba(127,29,29,0.25); border: 1px solid #7f1d1d; color: var(--error); border-radius: 10px; padding: 10px 12px; font-size: 0.88rem; margin-bottom: 14px; }
+  .features { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 22px; font-size: 0.82rem; color: var(--muted); }
+  .features span { border: 1px solid #2a2010; border-radius: 999px; padding: 6px 12px; }
+  .cred { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #0a0601; border: 1px solid #3a2c12; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .cred small { display: block; color: var(--muted); font-size: 0.75rem; }
+  .cred strong { font-size: 1.1rem; letter-spacing: 0.02em; }
+  .copy { background: none; border: 1px solid var(--border); color: var(--gold); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer; }
+  .ok-title { font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--gold); margin-bottom: 4px; text-align: center; }
+  .ok-sub { color: var(--muted); font-size: 0.9rem; text-align: center; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo"><img src="/icons/icon-512.png" alt="CapiBet" onerror="this.parentNode.textContent='🎰'"></div>
+
+  <div class="bonus" id="bonus" hidden>
+    <div class="bonus-label">BONO DE BIENVENIDA</div>
+    <div class="bonus-text" id="bonus-text"></div>
+  </div>
+
+  <h1>Creá tu cuenta en un click</h1>
+  <p class="sub">Dejanos tu nombre y tu WhatsApp y entrás a jugar al toque.</p>
+
+  <section class="card" id="form-card">
+    <div class="error" id="error"></div>
+    <label for="name">¿Cuál es tu nombre?</label>
+    <input id="name" autocomplete="given-name" maxlength="60" placeholder="Ej: Juan" />
+    <div class="hint">Con tu nombre armamos tu usuario.</div>
+    <label for="wa">Tu WhatsApp</label>
+    <input id="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" onkeydown="if(event.key==='Enter')crear()" />
+    <button class="btn" id="btn" onclick="crear()">CREAR MI CUENTA</button>
+    <button class="btn btn-ghost" id="btn-login" hidden onclick="irAlPortal()">YA TENGO CUENTA · INGRESAR</button>
+  </section>
+
+  <section class="card" id="ok-card" hidden>
+    <div class="ok-title">¡Listo, ya tenés tu cuenta! 🎉</div>
+    <div class="ok-sub">Guardá estos datos. También te los mandamos por el chat.</div>
+    <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
+    <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
+    <button class="btn" onclick="irAlPortal(true)">IR AL CHAT Y CARGAR</button>
+  </section>
+
+  <div class="features"><span>⚡ Acreditación al instante</span><span>💸 Retiros rápidos</span><span>🕐 Soporte 24/7</span></div>
+</main>
+<script>
+  // El portal "oficial" de los jugadores; la sesión viaja en el hash (#t=…).
+  const PORTAL_URL = 'https://player-portal-self.vercel.app/';
+  let sesion = null;
+
+  fetch('/api/player/landing').then(r => r.json()).then(j => {
+    if (j && j.bonus_text) {
+      document.getElementById('bonus-text').textContent = j.bonus_text;
+      document.getElementById('bonus').hidden = false;
+    }
+  }).catch(() => {});
+
+  function mostrarError(msg) {
+    const e = document.getElementById('error');
+    e.textContent = msg;
+    e.style.display = 'block';
+  }
+
+  async function crear() {
+    const btn = document.getElementById('btn');
+    document.getElementById('error').style.display = 'none';
+    const full_name = document.getElementById('name').value.trim();
+    const whatsapp = document.getElementById('wa').value.trim();
+    if (full_name.length < 2) return mostrarError('Poné tu nombre');
+    if (whatsapp.replace(/\D/g, '').length < 8) return mostrarError('Poné tu número de WhatsApp');
+    btn.disabled = true; btn.textContent = 'CREANDO TU CUENTA...';
+    try {
+      const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name, whatsapp }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (j.existing) document.getElementById('btn-login').hidden = false;
+        throw new Error(j.error || 'No pudimos crear tu cuenta. Probá de nuevo.');
+      }
+      sesion = j.token;
+      document.getElementById('u').textContent = j.credentials.username;
+      document.getElementById('p').textContent = j.credentials.password;
+      document.getElementById('form-card').hidden = true;
+      document.getElementById('ok-card').hidden = false;
+    } catch (e) {
+      mostrarError(e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'CREAR MI CUENTA';
+    }
+  }
+
+  function copiar(id, btn) {
+    const t = document.getElementById(id).textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => {
+      btn.textContent = 'Copiado'; setTimeout(() => (btn.textContent = 'Copiar'), 1500);
+    }).catch(() => {});
+  }
+
+  function irAlPortal(conSesion) {
+    location.href = conSesion && sesion ? `${PORTAL_URL}#t=${encodeURIComponent(sesion)}&p=chat` : PORTAL_URL;
+  }
+</script>
+</body>
+</html>

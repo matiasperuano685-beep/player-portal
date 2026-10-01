@@ -122,6 +122,7 @@ module.exports = async (req, res) => {
       const { data: existing } = await client.from('portal_settings').select('id').limit(1).maybeSingle();
       const payload = { whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name };
       if (typeof bot_enabled === 'boolean') payload.bot_enabled = bot_enabled;
+      if (typeof req.body.landing_bonus_text === 'string') payload.landing_bonus_text = req.body.landing_bonus_text.trim().slice(0, 140) || null;
       if (existing) { await client.from('portal_settings').update(payload).eq('id', existing.id); }
       else { await client.from('portal_settings').insert(payload); }
       return res.status(200).json({ ok: true });

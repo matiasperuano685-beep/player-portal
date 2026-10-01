@@ -44,4 +44,22 @@ async function cargar({ username, amount, reference }) {
   return data; // { ok, balance_after, duplicate? }
 }
 
-module.exports = { MIN_AUTO, MAX_AUTO, configurado, autoLoadActivo, montoPermitido, cargar };
+// Alta de jugador en el casino (landing de registro). Devuelve { ok, existed }:
+// existed = ese usuario ya estaba en el casino (no se le entrega a otro).
+async function crearJugador({ username, password }) {
+  const res = await fetch(process.env.CASINO_OPS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.CASINO_OPS_ANON_KEY}`,
+      apikey: process.env.CASINO_OPS_ANON_KEY,
+      'x-bot-secret': process.env.CASINO_OPS_BOT_SECRET,
+    },
+    body: JSON.stringify({ action: 'create_player', username, password }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok) throw new Error(data?.message || `casino-ops HTTP ${res.status}`);
+  return data;
+}
+
+module.exports = { MIN_AUTO, MAX_AUTO, configurado, autoLoadActivo, montoPermitido, cargar, crearJugador };

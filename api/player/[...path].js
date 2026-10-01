@@ -52,6 +52,82 @@ module.exports = async (req, res) => {
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }
 
+  // ── LANDING DE REGISTRO (capiok.me) ───────────────────
+  // Datos públicos para la landing: texto del bono (editable desde el admin).
+  if (slug === 'landing') {
+    if (req.method !== 'GET') return res.status(405).end();
+    try {
+      const settings = await bot.getSettings(db());
+      return res.status(200).json({ bonus_text: settings?.landing_bonus_text || null });
+    } catch { return res.status(200).json({ bonus_text: null }); }
+  }
+
+  // Alta automática: nombre + WhatsApp → usuario en el casino y en el portal
+  // (misma contraseña), y el bot le pasa los datos por el chat.
+  if (slug === 'signup') {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (rateLimit(req, 3, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
+    const casino = require('../_casino');
+    try {
+      const full_name = String(req.body?.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+      const whatsappDigits = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      if (full_name.length < 2) return res.status(400).json({ error: 'Poné tu nombre' });
+      if (whatsappDigits.length < 8 || whatsappDigits.length > 15) return res.status(400).json({ error: 'Poné un número de WhatsApp válido' });
+      const client = db();
+
+      // Un WhatsApp = una cuenta.
+      const last8 = whatsappDigits.slice(-8);
+      const { data: prev } = await client.from('portal_players').select('id').ilike('whatsapp', `%${last8}`).limit(1).maybeSingle();
+      if (prev) return res.status(409).json({ error: 'Ese WhatsApp ya tiene una cuenta. Ingresá con tu usuario o escribinos para recuperarla.', existing: true });
+
+      if (!casino.configurado()) return res.status(503).json({ error: 'El registro automático no está disponible en este momento.' });
+
+      const crypto = require('crypto');
+      const base = full_name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 10) || 'jugador';
+      const password = 'Capi' + String(crypto.randomInt(1000, 10000));
+      let username = null;
+      for (let i = 0; i < 6 && !username; i++) {
+        const cand = base.length >= 3 ? `${base}${crypto.randomInt(100, 10000)}` : `jugador${crypto.randomInt(1000, 100000)}`;
+        const { data: taken } = await client.from('portal_players').select('id').ilike('username', cand).limit(1).maybeSingle();
+        if (taken) continue;
+        const r = await casino.crearJugador({ username: cand, password });
+        if (r.existed) continue; // ya era de otro: nunca se entrega una cuenta existente
+        username = cand;
+      }
+      if (!username) return res.status(502).json({ error: 'No pudimos crear tu usuario. Probá de nuevo en un rato.' });
+
+      const password_hash = await bcrypt.hash(password, 10);
+      const { data: player, error } = await client.from('portal_players')
+        .insert({ username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active' })
+        .select().single();
+      if (error) throw error;
+
+      const settings = await bot.getSettings(client);
+      const chat = await bot.getOrCreateChat(client, player.id);
+      await bot.insertMessage(client, chat.id, 'player', `🆕 Me registré desde la página.\nNombre: ${full_name}\nWhatsApp: ${whatsappDigits}`, { signup: true });
+      await bot.touchChat(client, chat.id, 'player');
+      const lineas = [
+        `¡Bienvenido/a a CapiBet, ${full_name.split(' ')[0]}! 🎉`,
+        '',
+        'Ya tenés tu cuenta creada:',
+        `👤 Usuario: ${username}`,
+        `🔑 Contraseña: ${password}`,
+      ];
+      if (settings?.casino_url) lineas.push(`🎰 Jugá acá: ${settings.casino_url}`);
+      if (settings?.landing_bonus_text) lineas.push('', `🎁 ${settings.landing_bonus_text}`);
+      lineas.push('', 'Para cargar fichas tocá 💰 Cargar acá en el chat. ¡Mucha suerte! 🍀');
+      await bot.botSay(client, chat.id, lineas.join('\n'), { signup_welcome: true });
+
+      const token = signToken(player);
+      return res.status(201).json({
+        token,
+        player: { id: player.id, username, full_name, whatsapp: whatsappDigits, casino_username: username, balance: 0, status: 'active' },
+        credentials: { username, password },
+        casino_url: settings?.casino_url || null,
+      });
+    } catch (e) { console.error('signup', e); return res.status(500).json({ error: 'No pudimos crear tu cuenta. Probá de nuevo en un rato.' }); }
+  }
+
   // ── INVITADO ("No tengo usuario") ─────────────────────
   // El jugador deja nombre y WhatsApp y entra directo al chat. Queda como
   // status 'guest' (no puede entrar con contraseña ni cargar/retirar) hasta que
