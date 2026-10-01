@@ -2,16 +2,6 @@
   "outputDirectory": ".",
   "rewrites": [
     {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "registro.capiok.me"
-        }
-      ],
-      "destination": "/registro.html"
-    },
-    {
       "source": "/registro",
       "destination": "/registro.html"
     },
@@ -32,6 +22,19 @@
     {
       "path": "/api/cron/support",
       "schedule": "0 21 */2 * *"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "registro.capiok.me"
+        }
+      ],
+      "destination": "/registro",
+      "permanent": false
     }
   ]
 }
