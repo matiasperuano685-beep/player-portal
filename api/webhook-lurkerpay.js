@@ -57,6 +57,12 @@ module.exports = async (req, res) => {
     return res.status(404).json({ error: 'No encontrado' });
   }
 
+  // Verificación automática apagada (LURKERPAY_AUTO_VERIFY=off): se usa otra recaudadora y
+  // las cargas las revisa y aprueba el cajero en Chat Jugadores (Aprobar carga las fichas solo).
+  if (process.env.LURKERPAY_AUTO_VERIFY === 'off') {
+    return res.status(200).json({ ok: true, ignorado: 'verificacion_automatica_apagada' });
+  }
+
   const evento = req.body || {};
   // Responder rápido: LurkerPay no tiene que esperar a que hagamos todo
   const tipoOk = evento.tipo === 'ingreso' && evento.status === 'confirmada';
