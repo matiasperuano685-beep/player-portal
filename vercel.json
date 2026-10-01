@@ -6,17 +6,7 @@
       "has": [
         {
           "type": "host",
-          "value": "capiok.me"
-        }
-      ],
-      "destination": "/registro.html"
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.capiok.me"
+          "value": "registro.capiok.me"
         }
       ],
       "destination": "/registro.html"

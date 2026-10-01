@@ -52,7 +52,7 @@ module.exports = async (req, res) => {
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }
 
-  // ── LANDING DE REGISTRO (capiok.me) ───────────────────
+  // ── LANDING DE REGISTRO (registro.capiok.me) ───────────────────
   // Datos públicos para la landing: texto del bono (editable desde el admin).
   if (slug === 'landing') {
     if (req.method !== 'GET') return res.status(405).end();
