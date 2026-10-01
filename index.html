@@ -855,6 +855,20 @@
   if (m) {
     try { localStorage.setItem('portal_token', decodeURIComponent(m[1])); } catch (e) {}
     window.__openChatOnStart = /[#&]p=chat/.test(location.hash);
+    // Usuario y contraseña recién creados: se ofrecen al gestor de contraseñas
+    // del celular (así, si un día se cierra la sesión, el login se completa solo).
+    const u = location.hash.match(/[#&]u=([^&]+)/);
+    const k = location.hash.match(/[#&]k=([^&]+)/);
+    if (u && k) {
+      const user = decodeURIComponent(u[1]);
+      const pass = decodeURIComponent(k[1]);
+      try { localStorage.setItem('portal_last_user', user); } catch (e) {}
+      try {
+        if (window.PasswordCredential && navigator.credentials?.store) {
+          navigator.credentials.store(new PasswordCredential({ id: user, password: pass, name: 'CapiBet' })).catch(() => {});
+        }
+      } catch (e) {}
+    }
     history.replaceState(null, '', location.pathname + location.search);
   }
 })();
@@ -871,6 +885,13 @@ function switchAuthTab(tab) {
   document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const last = localStorage.getItem('portal_last_user');
+    const el = document.getElementById('login-user');
+    if (last && el && !el.value) el.value = last;
+  } catch (e) {}
+});
 async function doLogin() {
   const btn = document.getElementById('login-btn');
   const errEl = document.getElementById('login-error');

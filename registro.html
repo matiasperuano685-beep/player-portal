@@ -64,7 +64,7 @@
 
   <section class="card" id="ok-card" hidden>
     <div class="ok-title">¡Listo, ya tenés tu cuenta! 🎉</div>
-    <div class="ok-sub">Guardá estos datos. También te los mandamos por el chat.</div>
+    <div class="ok-sub">Guardá estos datos. También te los mandamos por el chat, y al entrar tu celular te ofrece guardarlos.</div>
     <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
     <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
     <button class="btn" onclick="irAlPortal(true)">IR AL CHAT Y CARGAR</button>
@@ -124,8 +124,13 @@
     }).catch(() => {});
   }
 
+  // Al portal con la sesión y los datos para que el celular ofrezca guardarlos.
+  // Van en el hash: no llegan a ningún servidor y el portal los borra al leerlos.
   function irAlPortal(conSesion) {
-    location.href = conSesion && sesion ? `${PORTAL_URL}#t=${encodeURIComponent(sesion)}&p=chat` : PORTAL_URL;
+    if (!(conSesion && sesion)) { location.href = PORTAL_URL; return; }
+    const u = encodeURIComponent(document.getElementById('u').textContent);
+    const k = encodeURIComponent(document.getElementById('p').textContent);
+    location.href = `${PORTAL_URL}#t=${encodeURIComponent(sesion)}&p=chat&u=${u}&k=${k}`;
   }
 </script>
 </body>
