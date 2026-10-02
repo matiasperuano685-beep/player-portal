@@ -32,6 +32,47 @@ module.exports = async (req, res) => {
   const client = db();
 
   // ── PLAYERS ───────────────────────────────────────────
+  // ── CAMPAÑAS (landing registro.capiok.me) ─────────────
+  // Registros por código de afiliado (?ref=) y cuántos cargaron, en un período.
+  if (slug === 'campaigns') {
+    if (req.method !== 'GET') return res.status(405).end();
+    try {
+      const days = Math.min(Math.max(parseInt(req.query?.days, 10) || 30, 1), 365);
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const players = [];
+      for (let from = 0; from < 20000; from += 1000) {
+        const { data, error } = await client.from('portal_players')
+          .select('id, signup_ref, created_at')
+          .eq('signup_source', 'landing').gte('created_at', since)
+          .order('created_at', { ascending: true }).range(from, from + 999);
+        if (error) return res.status(500).json({ error: error.message });
+        players.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const byPlayer = new Map();
+      const ids = players.map((p) => p.id);
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: txs } = await client.from('portal_transactions')
+          .select('player_id, amount')
+          .in('player_id', ids.slice(i, i + 200))
+          .eq('type', 'deposit').eq('status', 'approved');
+        for (const t of txs || []) byPlayer.set(t.player_id, (byPlayer.get(t.player_id) || 0) + Number(t.amount || 0));
+      }
+      const rows = new Map();
+      for (const p of players) {
+        const key = p.signup_ref || '(sin código)';
+        const r = rows.get(key) || { ref: key, registros: 0, cargaron: 0, total_cargado: 0, ultimo: null };
+        r.registros += 1;
+        const total = byPlayer.get(p.id) || 0;
+        if (total > 0) { r.cargaron += 1; r.total_cargado += total; }
+        if (!r.ultimo || p.created_at > r.ultimo) r.ultimo = p.created_at;
+        rows.set(key, r);
+      }
+      const data = Array.from(rows.values()).sort((a, b) => b.registros - a.registros);
+      return res.status(200).json({ days, data });
+    } catch (e) { console.error('campaigns', e); return res.status(500).json({ error: 'Error interno' }); }
+  }
+
   if (slug === 'players') {
     if (req.method === 'GET') {
       const { data, error } = await client.from('portal_players').select('id, username, full_name, whatsapp, casino_username, balance, status, created_at').order('created_at', { ascending: false });

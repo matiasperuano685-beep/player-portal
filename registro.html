@@ -77,6 +77,21 @@
   const PORTAL_URL = 'https://player-portal-self.vercel.app/';
   let sesion = null;
 
+  // Código de afiliado / campaña: ?ref=elnene (también ?a=, ?codigo= o utm_campaign).
+  // Se recuerda 30 días por si se registra más tarde (gana el primero que lo trajo).
+  function codigoCampana() {
+    const q = new URLSearchParams(location.search);
+    const limpio = (v) => String(v || '').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '').slice(0, 40);
+    const desdeLink = limpio(q.get('ref') || q.get('a') || q.get('codigo') || q.get('utm_campaign'));
+    try {
+      const guardado = JSON.parse(localStorage.getItem('signup_ref') || 'null');
+      if (guardado && guardado.ref && Date.now() - guardado.at < 30 * 86400000) return guardado.ref;
+      if (desdeLink) { localStorage.setItem('signup_ref', JSON.stringify({ ref: desdeLink, at: Date.now() })); }
+    } catch (e) {}
+    return desdeLink || null;
+  }
+  const REF = codigoCampana();
+
   fetch('/api/player/landing').then(r => r.json()).then(j => {
     if (j && j.bonus_text) {
       document.getElementById('bonus-text').textContent = j.bonus_text;
@@ -99,7 +114,7 @@
     if (whatsapp.replace(/\D/g, '').length < 8) return mostrarError('Poné tu número de WhatsApp');
     btn.disabled = true; btn.textContent = 'CREANDO TU CUENTA...';
     try {
-      const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name, whatsapp }) });
+      const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name, whatsapp, ref: REF }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (j.existing) document.getElementById('btn-login').hidden = false;

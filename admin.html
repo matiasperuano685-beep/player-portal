@@ -245,6 +245,22 @@
       </div>
     </div>
 
+    <!-- CAMPAÑAS -->
+    <div class="section-card">
+      <h2>📈 Campañas (registro.capiok.me)
+        <select id="camp-days" onchange="loadCampaigns()" style="margin-left:auto;background:#0a0601;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:0.8rem">
+          <option value="7">Últimos 7 días</option>
+          <option value="30" selected>Últimos 30 días</option>
+          <option value="90">Últimos 90 días</option>
+          <option value="365">Último año</option>
+        </select>
+      </h2>
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:10px">
+        Link de cada afiliado: <b>https://registro.capiok.me/?ref=CODIGO</b> (ej: ?ref=elnene, el nombre de su página del LinkBio).
+      </div>
+      <div id="camp-wrap"><div class="empty-players">Cargando...</div></div>
+    </div>
+
     <!-- JUGADORES -->
     <div class="section-card">
       <h2>👥 Jugadores <button class="btn-sm" onclick="openNewPlayer()">+ Nuevo jugador</button></h2>
@@ -354,6 +370,7 @@ function doLogin() {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-app').style.display = 'block';
       loadPlayers();
+      loadCampaigns();
     })
     .catch(e => {
       err.textContent = e.message;
@@ -427,6 +444,33 @@ function opFetch(url, opts = {}) {
     ...opts,
     headers: { 'Content-Type': 'application/json', 'x-operator-key': operatorKey, ...(opts.headers || {}) }
   });
+}
+
+// ─── CAMPAÑAS ────────────────────────────────────────────
+async function loadCampaigns() {
+  const wrap = document.getElementById('camp-wrap');
+  const days = document.getElementById('camp-days').value;
+  try {
+    const r = await opFetch('/api/operator/campaigns?days=' + days);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    const rows = j.data || [];
+    if (!rows.length) { wrap.innerHTML = '<div class="empty-players">Todavía no hay registros desde la landing en este período.</div>'; return; }
+    const money = (n) => '$' + Math.round(n).toLocaleString('es-AR');
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const tot = rows.reduce((a, r) => ({ registros: a.registros + r.registros, cargaron: a.cargaron + r.cargaron, total: a.total + r.total_cargado }), { registros: 0, cargaron: 0, total: 0 });
+    const td = 'style="padding:8px 6px;border-bottom:1px solid #2a2010;text-align:right"';
+    const tdl = 'style="padding:8px 6px;border-bottom:1px solid #2a2010"';
+    wrap.innerHTML = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.86rem">'
+      + '<tr style="color:var(--muted);font-size:0.75rem"><th ' + tdl + '>Código</th><th ' + td + '>Registros</th><th ' + td + '>Cargaron</th><th ' + td + '>Conversión</th><th ' + td + '>Total cargado</th></tr>'
+      + rows.map((r) => '<tr><td ' + tdl + '><b>' + esc(r.ref) + '</b></td><td ' + td + '>' + r.registros + '</td><td ' + td + '>' + r.cargaron
+        + '</td><td ' + td + '>' + Math.round(100 * r.cargaron / r.registros) + '%</td><td ' + td + '>' + money(r.total_cargado) + '</td></tr>').join('')
+      + '<tr style="font-weight:700"><td ' + tdl + '>Total</td><td ' + td + '>' + tot.registros + '</td><td ' + td + '>' + tot.cargaron + '</td><td ' + td + '>'
+      + Math.round(100 * tot.cargaron / tot.registros) + '%</td><td ' + td + '>' + money(tot.total) + '</td></tr>'
+      + '</table></div>';
+  } catch (e) {
+    wrap.innerHTML = '<div class="empty-players">No se pudo cargar: ' + e.message + '</div>';
+  }
 }
 
 async function loadPlayers() {

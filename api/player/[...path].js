@@ -97,8 +97,9 @@ module.exports = async (req, res) => {
       if (!username) return res.status(502).json({ error: 'No pudimos crear tu usuario. Probá de nuevo en un rato.' });
 
       const password_hash = await bcrypt.hash(password, 10);
+      const signup_ref = String(req.body?.ref || '').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '').slice(0, 40) || null;
       const { data: player, error } = await client.from('portal_players')
-        .insert({ username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active' })
+        .insert({ username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active', signup_ref, signup_source: 'landing' })
         .select().single();
       if (error) throw error;
 
