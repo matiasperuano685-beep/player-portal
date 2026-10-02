@@ -36,6 +36,9 @@ async function cargar({ username, amount, reference }) {
       Authorization: `Bearer ${process.env.CASINO_OPS_ANON_KEY}`,
       apikey: process.env.CASINO_OPS_ANON_KEY,
       'x-bot-secret': process.env.CASINO_OPS_BOT_SECRET,
+      // El casino rechaza logins desde fuera de la región: la función se ejecuta
+      // en San Pablo (como cuando la llama el CRM), no en EE.UU. (donde está Vercel).
+      'x-region': 'sa-east-1',
     },
     body: JSON.stringify({ action: 'deposit', username, amount, reference }),
   });
@@ -54,6 +57,9 @@ async function crearJugador({ username, password }) {
       Authorization: `Bearer ${process.env.CASINO_OPS_ANON_KEY}`,
       apikey: process.env.CASINO_OPS_ANON_KEY,
       'x-bot-secret': process.env.CASINO_OPS_BOT_SECRET,
+      // El casino rechaza logins desde fuera de la región: la función se ejecuta
+      // en San Pablo (como cuando la llama el CRM), no en EE.UU. (donde está Vercel).
+      'x-region': 'sa-east-1',
     },
     body: JSON.stringify({ action: 'create_player', username, password }),
   });
