@@ -164,8 +164,17 @@ module.exports = async (req, res) => {
     }
     if (req.method === 'PUT') {
       const { whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name, bot_enabled } = req.body;
-      const { data: existing } = await client.from('portal_settings').select('id').limit(1).maybeSingle();
+      const { data: existing } = await client.from('portal_settings').select('id, bank_cbu, bank_alias').limit(1).maybeSingle();
       const payload = { whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name };
+      // Si cambiaron el CBU/alias desde acá, esta pasa a ser la cuenta que muestra el bot:
+      // se desactivan las "Cuentas de cobro" del CRM (que si no, tienen prioridad).
+      const norm = (v) => String(v || '').trim();
+      const cuentaCambio = (norm(bank_cbu) || norm(bank_alias)) &&
+        (norm(bank_cbu) !== norm(existing?.bank_cbu) || norm(bank_alias) !== norm(existing?.bank_alias));
+      if (cuentaCambio) {
+        try { await client.from('portal_cash_accounts').update({ is_active: false }).eq('is_active', true); }
+        catch { /* la tabla puede no existir en portales sin cuentas de cobro */ }
+      }
       if (typeof bot_enabled === 'boolean') payload.bot_enabled = bot_enabled;
       if (typeof req.body.landing_bonus_text === 'string') payload.landing_bonus_text = req.body.landing_bonus_text.trim().slice(0, 140) || null;
       if (existing) { await client.from('portal_settings').update(payload).eq('id', existing.id); }
