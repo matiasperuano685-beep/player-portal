@@ -26,9 +26,13 @@ function isOperator(req) {
 module.exports = async (req, res) => {
   cors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!isOperator(req)) return res.status(403).json({ error: 'Acceso denegado' });
-
   const slug = req.url.split('?')[0].replace(/^\/api\/operator\/?/, '').replace(/\/$/, '');
+  // Clave de solo lectura para las estadísticas de campañas (la usa el Panel
+  // Central); no sirve para nada más.
+  const statsKey = req.headers['x-stats-key'];
+  const isStatsReader = slug === 'campaigns' && req.method === 'GET' && !!statsKey && statsKey === process.env.STATS_READ_KEY;
+  if (!isOperator(req) && !isStatsReader) return res.status(403).json({ error: 'Acceso denegado' });
+
   const client = db();
 
   // ── PLAYERS ───────────────────────────────────────────
