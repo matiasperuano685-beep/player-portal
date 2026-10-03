@@ -8,6 +8,7 @@ const ALLOWED_ORIGINS = [
   // LinkBio (pestaña "Landings Portal": lee estadísticas de campañas)
   'https://capiok.me',
   'https://www.capiok.me',
+  'https://linkbio-teal-seven.vercel.app',
   process.env.PORTAL_ORIGIN, // origen extra configurable por env var
 ].filter(Boolean);
 
