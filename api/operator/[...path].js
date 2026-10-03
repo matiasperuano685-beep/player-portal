@@ -31,7 +31,21 @@ module.exports = async (req, res) => {
   // Central); no sirve para nada más.
   const statsKey = req.headers['x-stats-key'];
   const isStatsReader = slug === 'campaigns' && req.method === 'GET' && !!statsKey && statsKey === process.env.STATS_READ_KEY;
-  if (!isOperator(req) && !isStatsReader) return res.status(403).json({ error: 'Acceso denegado' });
+  // LinkBio: la sesión del usuario del LinkBio (validada contra su Supabase) y
+  // su mail tiene que estar en STATS_ALLOWED_EMAILS. Solo para leer campañas.
+  let isLinkbioReader = false;
+  const lbToken = req.headers['x-linkbio-token'];
+  if (!isStatsReader && slug === 'campaigns' && req.method === 'GET' && lbToken) {
+    const allowed = String(process.env.STATS_ALLOWED_EMAILS || '').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean);
+    const lbUrl = process.env.LINKBIO_SUPABASE_URL || 'https://eqynozpdigyoqvgazkjj.supabase.co';
+    const lbAnon = process.env.LINKBIO_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeW5venBkaWd5b3F2Z2F6a2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0Mzk4OTYsImV4cCI6MjA4MjAxNTg5Nn0.oUSCKC7P-_Nyr7lluQYFj_PQnNCakrriRIxWzgiMobM';
+    try {
+      const r = await fetch(`${lbUrl}/auth/v1/user`, { headers: { apikey: lbAnon, Authorization: `Bearer ${lbToken}` } });
+      const u = r.ok ? await r.json() : null;
+      isLinkbioReader = !!u?.email && allowed.includes(String(u.email).toLowerCase());
+    } catch { isLinkbioReader = false; }
+  }
+  if (!isOperator(req) && !isStatsReader && !isLinkbioReader) return res.status(403).json({ error: 'Acceso denegado' });
 
   const client = db();
 

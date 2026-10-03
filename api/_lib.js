@@ -5,6 +5,9 @@ const jwt = require('jsonwebtoken');
 const ALLOWED_ORIGINS = [
   'https://supercrm.best',
   'https://player-portal-vyb5.vercel.app',
+  // LinkBio (pestaña "Landings Portal": lee estadísticas de campañas)
+  'https://capiok.me',
+  'https://www.capiok.me',
   process.env.PORTAL_ORIGIN, // origen extra configurable por env var
 ].filter(Boolean);
 
@@ -44,7 +47,7 @@ function cors(res, req) {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-operator-key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-operator-key, x-linkbio-token');
   res.setHeader('Access-Control-Max-Age', '86400');
 }
 
