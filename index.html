@@ -491,7 +491,7 @@
     <!-- INVITADO: "No tengo usuario" → directo al chat -->
     <div id="guest-form" style="display:none">
       <div class="auth-error" id="guest-error"></div>
-      <div style="font-size:0.9rem;color:var(--muted);margin-bottom:14px">Dejanos tu nombre y tu WhatsApp y te abrimos el chat: un cajero te crea el usuario en unos minutos.</div>
+      <div style="font-size:0.9rem;color:var(--muted);margin-bottom:14px">Dejanos tu nombre y tu WhatsApp y te creamos la cuenta al instante: te llega tu usuario y contraseña en el chat.</div>
       <div class="form-group">
         <label>Nombre</label>
         <input type="text" id="guest-name" placeholder="Ej: Juan" autocomplete="name" maxlength="60" />
@@ -500,7 +500,7 @@
         <label>WhatsApp</label>
         <input type="tel" id="guest-wa" placeholder="Ej: 11 2345 6789" autocomplete="tel" onkeydown="if(event.key==='Enter')doGuest()" />
       </div>
-      <button class="btn-primary" onclick="doGuest()" id="guest-btn">Abrir el chat</button>
+      <button class="btn-primary" onclick="doGuest()" id="guest-btn">Crear mi cuenta</button>
       <button onclick="hideGuestForm()" style="background:none;border:none;color:var(--muted);font-size:0.85rem;margin-top:12px;cursor:pointer;width:100%">← Ya tengo usuario</button>
     </div>
 
@@ -929,7 +929,7 @@ async function doGuest() {
   const full_name = document.getElementById('guest-name').value.trim();
   const whatsapp = document.getElementById('guest-wa').value.trim();
   if (!full_name || !whatsapp) { showAuthError('guest', 'Completá tu nombre y tu WhatsApp'); return; }
-  btn.disabled = true; btn.textContent = 'Abriendo el chat...';
+  btn.disabled = true; btn.textContent = 'Creando tu cuenta...';
   try {
     const r = await fetch('/api/player/guest', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ full_name, whatsapp }) });
     const j = await r.json();
@@ -937,11 +937,21 @@ async function doGuest() {
     token = j.token;
     localStorage.setItem('portal_token', token);
     currentPlayer = j.player;
+    // Cuenta creada automáticamente: se ofrece guardar usuario/contraseña en el celular
+    if (j.credentials) {
+      try { localStorage.setItem('portal_last_user', j.credentials.username); } catch (e) {}
+      try {
+        if (window.PasswordCredential && navigator.credentials?.store) {
+          navigator.credentials.store(new PasswordCredential({ id: j.credentials.username, password: j.credentials.password, name: 'CapiBet' })).catch(() => {});
+        }
+      } catch (e) {}
+    }
     await loadMeData();
     showApp();
+    goPage('chat'); // ahí el bot le dejó usuario y contraseña
   } catch(e) {
     showAuthError('guest', e.message);
-  } finally { btn.disabled = false; btn.textContent = 'Abrir el chat'; }
+  } finally { btn.disabled = false; btn.textContent = 'Crear mi cuenta'; }
 }
 
 async function doRegister() {
