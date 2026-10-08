@@ -58,13 +58,13 @@
 
   <section class="wheel-wrap" id="wheel-wrap" hidden>
     <h1>Girá la ruleta 🎰</h1>
-    <p class="sub" id="wheel-sub">Todas las casillas tienen premio: un bono extra en tu primera carga.</p>
+    <p class="sub" id="wheel-sub">Ganá un bono extra para tu primera carga: hasta el 100%.</p>
     <div class="wheel-box"><div class="wheel-pin"></div><svg id="wheel" viewBox="-110 -110 220 220"></svg></div>
-    <button class="btn" id="spin-btn" onclick="girar()">GIRAR LA RULETA</button>
+    <div class="wheel-note" id="wheel-odds"></div>
   </section>
 
   <h1 id="form-title">Creá tu cuenta en un click</h1>
-  <p class="sub">Dejanos tu nombre y tu WhatsApp y entrás a jugar al toque.</p>
+  <p class="sub" id="form-sub">Dejanos tu nombre y tu WhatsApp y entrás a jugar al toque.</p>
 
   <section class="card" id="form-card">
     <div class="won" id="won" hidden></div>
@@ -79,6 +79,7 @@
   </section>
 
   <section class="card" id="ok-card" hidden>
+    <div class="won" id="won-ok" hidden></div>
     <div class="ok-title">¡Listo, ya tenés tu cuenta! 🎉</div>
     <div class="ok-sub">Guardá estos datos. También te los mandamos por el chat, y al entrar tu celular te ofrece guardarlos.</div>
     <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
@@ -108,57 +109,61 @@
   }
   const REF = codigoCampana();
 
-  let BONO = 0;
+  // Ruleta: premios y probabilidades vienen del servidor; el sorteo también lo hace el servidor.
+  let PREMIOS = null;
+  let segmentos = [];
   fetch('/api/player/landing').then(r => r.json()).then(j => {
-    BONO = Number(j && j.welcome_bonus_pct) || 0;
-    if (BONO > 0) {
-      // Primero la ruleta; el formulario aparece cuando la gira.
-      armarRuleta(BONO);
+    if (j && Array.isArray(j.wheel) && j.wheel.length) {
+      PREMIOS = j.wheel;
+      armarRuleta(PREMIOS);
       document.getElementById('wheel-wrap').hidden = false;
       document.getElementById('form-title').hidden = true;
-      document.querySelector('.sub:not(#wheel-sub)').hidden = true;
-      document.getElementById('form-card').hidden = true;
+      document.getElementById('form-sub').textContent = 'Dejanos tu nombre y tu WhatsApp, girá y reclamá tu bono.';
+      document.getElementById('btn').textContent = 'GIRAR Y CREAR MI CUENTA';
+      const total = PREMIOS.reduce((a, x) => a + Number(x.weight), 0);
+      document.getElementById('wheel-odds').textContent = 'Probabilidades: ' +
+        PREMIOS.map(x => `${x.pct}% extra (${Math.round(Number(x.weight) / total * 1000) / 10}%)`).join(' · ') +
+        '. Un giro por WhatsApp. El bono se suma a tu primera carga.';
     } else if (j && j.bonus_text) {
       document.getElementById('bonus-text').textContent = j.bonus_text;
       document.getElementById('bonus').hidden = false;
     }
   }).catch(() => {});
 
-  // 8 casillas, todas con el mismo bono (cambian el color y el ícono).
-  const ICONOS = ['🎁', '💰', '🔥', '🍀', '🎰', '💎', '⭐', '🚀'];
-  function armarRuleta(pct) {
+  // 8 casillas: el premio más común intercalado con los demás.
+  function armarRuleta(premios) {
+    const orden = [...premios].sort((a, b) => b.weight - a.weight).map(x => Number(x.pct));
+    const base = orden[0], otros = orden.slice(1);
+    segmentos = [];
+    for (let i = 0; i < 8; i++) segmentos.push(i % 2 === 0 || !otros.length ? base : otros[Math.floor(i / 2) % otros.length]);
     const svg = document.getElementById('wheel');
-    const n = ICONOS.length, r = 100, parts = [];
+    const n = segmentos.length, r = 100, parts = [];
     for (let i = 0; i < n; i++) {
       const a0 = (i / n) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
       const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0), x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
       const mid = (a0 + a1) / 2, tx = 64 * Math.cos(mid), ty = 64 * Math.sin(mid), rot = (mid * 180) / Math.PI + 90;
-      const fill = i % 2 ? '#1c1203' : '#f59e0b', color = i % 2 ? '#fbbf24' : '#000';
+      const grande = segmentos[i] !== base;
+      const fill = grande ? '#7c2d12' : (i % 4 === 0 ? '#f59e0b' : '#1c1203');
+      const color = grande ? '#fde68a' : (i % 4 === 0 ? '#000' : '#fbbf24');
       parts.push(`<path d="M0 0 L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z" fill="${fill}" stroke="#fbbf24" stroke-width="1.5"/>`);
-      parts.push(`<g transform="translate(${tx} ${ty}) rotate(${rot})"><text text-anchor="middle" font-family="Oswald, sans-serif" font-weight="700" font-size="17" fill="${color}">${pct}%</text><text y="18" text-anchor="middle" font-size="13">${ICONOS[i]}</text></g>`);
+      parts.push(`<g transform="translate(${tx} ${ty}) rotate(${rot})"><text text-anchor="middle" font-family="Oswald, sans-serif" font-weight="700" font-size="${grande ? 19 : 17}" fill="${color}">${segmentos[i]}%</text><text y="16" text-anchor="middle" font-size="9" fill="${color}">EXTRA</text></g>`);
     }
     parts.push('<circle r="20" fill="#050300" stroke="#fbbf24" stroke-width="3"/><text y="6" text-anchor="middle" font-size="16">🎰</text>');
     svg.innerHTML = parts.join('');
   }
 
-  let girada = false;
-  function girar() {
-    if (girada) return;
-    girada = true;
-    const btn = document.getElementById('spin-btn');
-    btn.disabled = true; btn.textContent = 'GIRANDO...';
-    const vueltas = 5 + Math.floor(Math.random() * 3);
-    const extra = Math.floor(Math.random() * 360);
-    document.getElementById('wheel').style.transform = `rotate(${vueltas * 360 + extra}deg)`;
-    setTimeout(() => {
-      document.getElementById('wheel-wrap').hidden = true;
-      const won = document.getElementById('won');
-      won.textContent = `🎉 ¡Ganaste ${BONO}% extra en tu primera carga! Creá tu cuenta para reclamarlo.`;
-      won.hidden = false;
-      document.getElementById('form-title').hidden = false;
-      document.getElementById('form-card').hidden = false;
-      document.getElementById('name').focus();
-    }, 4700);
+  /** Gira hasta frenar en una casilla con el premio que sorteó el servidor. */
+  function girarHasta(pct) {
+    return new Promise((resolve) => {
+      const n = segmentos.length, seg = 360 / n;
+      const posibles = segmentos.map((v, i) => (v === pct ? i : -1)).filter(i => i >= 0);
+      const i = posibles[Math.floor(Math.random() * posibles.length)] ?? 0;
+      const centro = (i + 0.5) * seg;
+      const jitter = (Math.random() - 0.5) * seg * 0.6;
+      const vueltas = 5 + Math.floor(Math.random() * 3);
+      document.getElementById('wheel').style.transform = `rotate(${vueltas * 360 - centro + jitter}deg)`;
+      setTimeout(resolve, 4700);
+    });
   }
 
   function mostrarError(msg) {
@@ -174,8 +179,25 @@
     const whatsapp = document.getElementById('wa').value.trim();
     if (full_name.length < 2) return mostrarError('Poné tu nombre');
     if (whatsapp.replace(/\D/g, '').length < 8) return mostrarError('Poné tu número de WhatsApp');
-    btn.disabled = true; btn.textContent = 'CREANDO TU CUENTA...';
+    btn.disabled = true;
+    let ganado = 0;
     try {
+      if (PREMIOS) {
+        btn.textContent = 'GIRANDO...';
+        const g = await fetch('/api/player/spin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ whatsapp, ref: REF }) });
+        const gj = await g.json().catch(() => ({}));
+        if (!g.ok) {
+          if (gj.existing) document.getElementById('btn-login').hidden = false;
+          throw new Error(gj.error || 'No pudimos girar la ruleta. Probá de nuevo.');
+        }
+        ganado = Number(gj.pct) || 0;
+        document.getElementById('wheel-wrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await girarHasta(ganado);
+        const won = document.getElementById('won');
+        won.textContent = gj.already ? `Ya giraste con este WhatsApp: tu bono es ${ganado}% extra en tu primera carga.` : `🎉 ¡Ganaste ${ganado}% extra en tu primera carga!`;
+        won.hidden = false;
+      }
+      btn.textContent = 'CREANDO TU CUENTA...';
       const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name, whatsapp, ref: REF }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
@@ -186,11 +208,17 @@
       document.getElementById('u').textContent = j.credentials.username;
       document.getElementById('p').textContent = j.credentials.password;
       document.getElementById('form-card').hidden = true;
+      document.getElementById('wheel-wrap').hidden = true;
+      if (ganado) {
+        const wonOk = document.getElementById('won-ok');
+        wonOk.textContent = `🎁 Tu bono: ${ganado}% extra en tu primera carga. Se suma solo cuando cargues.`;
+        wonOk.hidden = false;
+      }
       document.getElementById('ok-card').hidden = false;
     } catch (e) {
       mostrarError(e.message);
     } finally {
-      btn.disabled = false; btn.textContent = 'CREAR MI CUENTA';
+      btn.disabled = false; btn.textContent = PREMIOS ? 'GIRAR Y CREAR MI CUENTA' : 'CREAR MI CUENTA';
     }
   }
 

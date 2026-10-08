@@ -7,6 +7,23 @@ const bot = require('../_bot');
 // "No tengo usuario" del portal. Si ese WhatsApp ya había entrado como invitado
 // ('guest', esperando a un cajero), se reusa ese jugador y su chat.
 // Devuelve { ok, status, body } o { ok:false, status, error }.
+// ── Ruleta de la landing: premios con probabilidades reales (portal_settings) ──
+const DEFAULT_PRIZES = [{ pct: 20, weight: 85 }, { pct: 30, weight: 10 }, { pct: 50, weight: 4 }, { pct: 100, weight: 1 }];
+function wheelPrizes(settings) {
+  const list = Array.isArray(settings?.landing_wheel_prizes) ? settings.landing_wheel_prizes : DEFAULT_PRIZES;
+  const ok = list.map((x) => ({ pct: Number(x.pct), weight: Number(x.weight) }))
+    .filter((x) => x.pct > 0 && x.pct <= 200 && x.weight > 0);
+  return ok.length ? ok : DEFAULT_PRIZES;
+}
+/** Sorteo con crypto (no se puede predecir). */
+function drawPrize(prizes) {
+  const total = prizes.reduce((a, x) => a + x.weight, 0);
+  let n = require('crypto').randomInt(0, Math.round(total * 1000)) / 1000;
+  for (const x of prizes) { if ((n -= x.weight) < 0) return x.pct; }
+  return prizes[0].pct;
+}
+const wheelOn = (settings) => Number(settings?.landing_welcome_bonus_pct || 0) > 0;
+
 async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref, intro }) {
   const casino = require('../_casino');
   const last8 = whatsappDigits.slice(-8);
@@ -33,7 +50,11 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
   const password_hash = await bcrypt.hash(password, 10);
   const settings = await bot.getSettings(client);
   // Ruleta de la landing: bono de bienvenida en la primera carga.
-  const welcomePct = source === 'landing' ? Number(settings?.landing_welcome_bonus_pct || 0) : 0;
+  let welcomePct = 0;
+  if (source === 'landing' && wheelOn(settings)) {
+    const { data: spin } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
+    welcomePct = Number(spin?.pct || 0);
+  }
   const fields = { username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active', signup_ref: ref || null, signup_source: source, welcome_bonus_pct: welcomePct || null };
   const q = invitado
     ? client.from('portal_players').update(fields).eq('id', invitado.id).select().single()
@@ -124,8 +145,39 @@ module.exports = async (req, res) => {
     if (req.method !== 'GET') return res.status(405).end();
     try {
       const settings = await bot.getSettings(db());
-      return res.status(200).json({ bonus_text: settings?.landing_bonus_text || null, welcome_bonus_pct: Number(settings?.landing_welcome_bonus_pct) || null });
+      return res.status(200).json({
+        bonus_text: settings?.landing_bonus_text || null,
+        wheel: wheelOn(settings) ? wheelPrizes(settings) : null,
+      });
     } catch { return res.status(200).json({ bonus_text: null }); }
+  }
+
+  // Giro de la ruleta: uno por WhatsApp (si vuelve a girar, le sale lo mismo).
+  if (slug === 'spin') {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (rateLimit(req, 6, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
+    try {
+      const client = db();
+      const settings = await bot.getSettings(client);
+      if (!wheelOn(settings)) return res.status(404).json({ error: 'La ruleta no está activa' });
+      const digits = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      if (digits.length < 8 || digits.length > 15) return res.status(400).json({ error: 'Poné un número de WhatsApp válido' });
+      const last8 = digits.slice(-8);
+      const { data: prev } = await client.from('portal_players').select('id').ilike('whatsapp', `%${last8}`).neq('status', 'guest').limit(1);
+      if (prev?.length) return res.status(409).json({ error: 'Ese WhatsApp ya tiene una cuenta. Ingresá con tu usuario.', existing: true });
+      const { data: spun } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
+      if (spun) return res.status(200).json({ pct: Number(spun.pct), already: true });
+      const pct = drawPrize(wheelPrizes(settings));
+      const ref = String(req.body?.ref || '').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '').slice(0, 40) || null;
+      const { error } = await client.from('landing_spins').insert({ whatsapp_last8: last8, pct, ref });
+      if (error) {
+        // Dos giros a la vez del mismo número: vale el primero.
+        const { data: again } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
+        if (again) return res.status(200).json({ pct: Number(again.pct), already: true });
+        throw error;
+      }
+      return res.status(200).json({ pct });
+    } catch (e) { console.error('spin', e); return res.status(500).json({ error: 'No pudimos girar la ruleta. Probá de nuevo.' }); }
   }
 
   // Alta automática: nombre + WhatsApp → usuario en el casino y en el portal
