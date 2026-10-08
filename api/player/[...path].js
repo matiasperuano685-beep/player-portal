@@ -31,14 +31,16 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
   if (!username) return { ok: false, status: 502, error: 'No pudimos crear tu usuario. Probá de nuevo en un rato.' };
 
   const password_hash = await bcrypt.hash(password, 10);
-  const fields = { username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active', signup_ref: ref || null, signup_source: source };
+  const settings = await bot.getSettings(client);
+  // Ruleta de la landing: bono de bienvenida en la primera carga.
+  const welcomePct = source === 'landing' ? Number(settings?.landing_welcome_bonus_pct || 0) : 0;
+  const fields = { username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active', signup_ref: ref || null, signup_source: source, welcome_bonus_pct: welcomePct || null };
   const q = invitado
     ? client.from('portal_players').update(fields).eq('id', invitado.id).select().single()
     : client.from('portal_players').insert(fields).select().single();
   const { data: player, error } = await q;
   if (error) throw error;
 
-  const settings = await bot.getSettings(client);
   const chat = await bot.getOrCreateChat(client, player.id);
   await bot.insertMessage(client, chat.id, 'player', `${intro}\nNombre: ${full_name}\nWhatsApp: ${whatsappDigits}`, { signup: true, source });
   await bot.touchChat(client, chat.id, 'player');
@@ -50,7 +52,8 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
     `🔑 Contraseña: ${password}`,
   ];
   if (settings?.casino_url) lineas.push(`🎰 Jugá acá: ${settings.casino_url}`);
-  if (settings?.landing_bonus_text) lineas.push('', `🎁 ${settings.landing_bonus_text}`);
+  if (welcomePct) lineas.push('', `🎁 Ganaste ${welcomePct}% extra en tu primera carga: se suma solo cuando cargues.`);
+  else if (settings?.landing_bonus_text) lineas.push('', `🎁 ${settings.landing_bonus_text}`);
   lineas.push('', 'Para cargar fichas tocá 💰 Cargar acá en el chat. ¡Mucha suerte! 🍀');
   await bot.botSay(client, chat.id, lineas.join('\n'), { signup_welcome: true });
 
@@ -121,7 +124,7 @@ module.exports = async (req, res) => {
     if (req.method !== 'GET') return res.status(405).end();
     try {
       const settings = await bot.getSettings(db());
-      return res.status(200).json({ bonus_text: settings?.landing_bonus_text || null });
+      return res.status(200).json({ bonus_text: settings?.landing_bonus_text || null, welcome_bonus_pct: Number(settings?.landing_welcome_bonus_pct) || null });
     } catch { return res.status(200).json({ bonus_text: null }); }
   }
 
@@ -227,7 +230,8 @@ module.exports = async (req, res) => {
       const { data: settings } = await client.from('portal_settings').select('min_deposit').limit(1).maybeSingle();
       const minDeposit = settings?.min_deposit || 0;
       if (Number(amount) < minDeposit) return res.status(400).json({ error: `El monto mínimo de carga es $${Number(minDeposit).toLocaleString('es-AR')}` });
-      const { data, error } = await client.from('portal_transactions').insert({ player_id: claim.id, type: 'deposit', amount: Number(amount), status: 'pending', notes: notes || null }).select().single();
+      const bonus = await bot.welcomeBonusFor(client, claim.id, amount);
+      const { data, error } = await client.from('portal_transactions').insert({ player_id: claim.id, type: 'deposit', amount: Number(amount), status: 'pending', notes: notes || null, bonus_pct: bonus?.pct || null, bonus_amount: bonus?.amount || 0 }).select().single();
       if (error) throw error;
       return res.status(201).json({ ok: true, transaction: data });
     } catch { return res.status(500).json({ error: 'Error interno' }); }
@@ -375,15 +379,18 @@ module.exports = async (req, res) => {
       if (Number(amount) < Number(settings.min_deposit || 0)) return res.status(400).json({ error: `El monto mínimo de carga es $${bot.money(settings.min_deposit)}` });
       const file = await bot.uploadComprobante(client, claim.id, imageBase64, mimeType);
       const chat = await bot.getOrCreateChat(client, claim.id);
+      const bonus = await bot.welcomeBonusFor(client, claim.id, amount);
       const { data: tx, error: txErr } = await client.from('portal_transactions')
-        .insert({ player_id: claim.id, type: 'deposit', amount: Number(amount), status: 'pending', comprobante_path: file.path, chat_id: chat.id })
+        .insert({ player_id: claim.id, type: 'deposit', amount: Number(amount), status: 'pending', comprobante_path: file.path, chat_id: chat.id, bonus_pct: bonus?.pct || null, bonus_amount: bonus?.amount || 0 })
         .select().single();
       if (txErr) throw txErr;
       const isPdf = mimeType === 'application/pdf';
       const body = `💰 SOLICITUD DE CARGA\n💵 Monto: $${bot.money(amount)}\n${isPdf ? '📄 Comprobante PDF: ' : ''}${file.url}`;
       const msg = await bot.insertMessage(client, chat.id, 'player', body, { type: 'comprobante', tx_id: tx.id, amount: Number(amount) });
       await bot.touchChat(client, chat.id, 'player');
-      const replies = [await bot.botSay(client, chat.id, `⏳ Recibimos tu comprobante por $${bot.money(amount)}. Lo estamos verificando y te avisamos por acá.`, { type: 'status', tx_id: tx.id })];
+      const recibido = `⏳ Recibimos tu comprobante por $${bot.money(amount)}. Lo estamos verificando y te avisamos por acá.`;
+      const conBono = bonus ? `\n🎁 Como es tu primera carga, te sumamos tu bono de ${bonus.pct}% (+$${bot.money(bonus.amount)}): vas a recibir $${bot.money(Number(amount) + bonus.amount)}.` : '';
+      const replies = [await bot.botSay(client, chat.id, recibido + conBono, { type: 'status', tx_id: tx.id, bonus_amount: bonus?.amount || 0 })];
       return res.status(201).json({ ok: true, messages: await bot.signMessageUrls(client, [msg, ...replies]) });
     } catch (e) {
       if (e.status === 400) return res.status(400).json({ error: e.message });

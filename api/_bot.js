@@ -171,14 +171,51 @@ async function uploadComprobante(client, playerId, imageBase64, mimeType) {
 }
 
 // Aviso al jugador cuando el operador resuelve una carga o retiro.
+// Bono de bienvenida (ruleta de la landing): solo en la PRIMERA carga, si el jugador
+// lo tiene y no lo usó. Devuelve { pct, amount } o null.
+async function welcomeBonusFor(client, playerId, amount) {
+  const { data: p } = await client.from('portal_players')
+    .select('welcome_bonus_pct, welcome_bonus_used_at').eq('id', playerId).maybeSingle();
+  const pct = Number(p?.welcome_bonus_pct || 0);
+  if (!pct || p?.welcome_bonus_used_at) return null;
+  const { count } = await client.from('portal_transactions').select('id', { count: 'exact', head: true })
+    .eq('player_id', playerId).eq('type', 'deposit').eq('status', 'approved');
+  if (count) return null; // ya cargó antes: no es la primera
+  return { pct, amount: Math.round(Number(amount) * pct / 100) };
+}
+
+/** Bono que corresponde acreditar con esta carga: 0 si el jugador ya lo usó en otra. */
+async function bonusToCredit(client, tx) {
+  if (tx.type !== 'deposit' || !Number(tx.bonus_amount)) return 0;
+  const { data: p } = await client.from('portal_players')
+    .select('welcome_bonus_used_at, welcome_bonus_tx_id').eq('id', tx.player_id).maybeSingle();
+  if (p?.welcome_bonus_used_at && p.welcome_bonus_tx_id !== tx.id) {
+    await client.from('portal_transactions').update({ bonus_amount: 0 }).eq('id', tx.id);
+    tx.bonus_amount = 0;
+    return 0;
+  }
+  return Number(tx.bonus_amount);
+}
+
+/** Al aprobar una carga con bono: queda usado (una sola vez por jugador). */
+async function markWelcomeBonusUsed(client, tx) {
+  if (tx.type !== 'deposit' || !Number(tx.bonus_amount)) return;
+  await client.from('portal_players')
+    .update({ welcome_bonus_used_at: new Date().toISOString(), welcome_bonus_tx_id: tx.id })
+    .eq('id', tx.player_id).is('welcome_bonus_used_at', null);
+}
+
 async function notifyTransactionResult(client, tx, action, operatorNotes) {
   const chat = await getOrCreateChat(client, tx.player_id);
   if (!chat) return null;
   const isDeposit = tx.type === 'deposit';
+  const bonus = Number(tx.bonus_amount || 0);
   let body;
   if (action === 'approve') {
     body = isDeposit
-      ? `✅ ¡Listo! Tu carga de $${money(tx.amount)} fue acreditada. ¡A jugar! 🎰`
+      ? (bonus > 0
+        ? `✅ ¡Listo! Tu carga de $${money(tx.amount)} fue acreditada con tu bono de bienvenida de ${Number(tx.bonus_pct)}% (+$${money(bonus)}). Total: $${money(Number(tx.amount) + bonus)}. ¡A jugar! 🎰`
+        : `✅ ¡Listo! Tu carga de $${money(tx.amount)} fue acreditada. ¡A jugar! 🎰`)
       : `✅ Tu retiro de $${money(tx.amount)} fue aprobado y ya está en camino a tu cuenta.`;
   } else {
     body = isDeposit
@@ -193,4 +230,5 @@ async function notifyTransactionResult(client, tx, action, operatorNotes) {
 module.exports = {
   money, botActive, getSettings, getActiveAccount, getOrCreateChat, insertMessage, touchChat, botSay,
   replyToAction, maybeWelcome, signMessageUrls, signPaths, uploadComprobante, notifyTransactionResult,
+  welcomeBonusFor, markWelcomeBonusUsed, bonusToCredit,
 };

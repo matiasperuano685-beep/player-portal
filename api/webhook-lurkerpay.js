@@ -146,10 +146,12 @@ module.exports = async (req, res) => {
 
       if (tomada?.length) {
         try {
-          const r = await casino.cargar({ username: casinoUser, amount: Number(tx.amount), reference: tx.id });
+          const total = Number(tx.amount) + await bot.bonusToCredit(client, tx); // con bono de bienvenida si corresponde
+          const r = await casino.cargar({ username: casinoUser, amount: total, reference: tx.id });
           await client.from('portal_players')
-            .update({ balance: Number(player.balance || 0) + Number(tx.amount) })
+            .update({ balance: Number(player.balance || 0) + total })
             .eq('id', player.id);
+          await bot.markWelcomeBonusUsed(client, tx);
           await client.from('portal_transactions').update({
             match_info: { ...info, auto: 'ok', saldo_casino: r.balance_after ?? null },
           }).eq('id', tx.id);

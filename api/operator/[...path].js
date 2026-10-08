@@ -136,7 +136,7 @@ module.exports = async (req, res) => {
   if (slug === 'transactions') {
     if (req.method === 'GET') {
       const status = req.query.status || 'pending';
-      let query = client.from('portal_transactions').select(`id, type, amount, status, notes, operator_notes, comprobante_path, chat_id, matched_at, match_info, lurkerpay_tx_id, created_at, updated_at, portal_players (id, username, full_name, whatsapp, casino_username, balance)`).order('created_at', { ascending: false });
+      let query = client.from('portal_transactions').select(`id, type, amount, bonus_pct, bonus_amount, status, notes, operator_notes, comprobante_path, chat_id, matched_at, match_info, lurkerpay_tx_id, created_at, updated_at, portal_players (id, username, full_name, whatsapp, casino_username, balance, welcome_bonus_used_at, welcome_bonus_tx_id)`).order('created_at', { ascending: false });
       if (status !== 'all') query = query.eq('status', status);
       const { data, error } = await query.limit(200);
       if (error) return res.status(500).json({ error: 'Error interno' });
@@ -154,8 +154,11 @@ module.exports = async (req, res) => {
       await client.from('portal_transactions').update({ status: newStatus, operator_notes: operator_notes || null, updated_at: new Date().toISOString() }).eq('id', id);
       if (action === 'approve') {
         const player = tx.portal_players;
-        const delta = tx.type === 'deposit' ? Number(tx.amount) : -Number(tx.amount);
+        // La carga se acredita con el bono de bienvenida si lo tenía (el CRM ya cargó monto + bono en el casino).
+        const bonusOk = await bot.bonusToCredit(client, tx);
+        const delta = tx.type === 'deposit' ? Number(tx.amount) + bonusOk : -Number(tx.amount);
         await client.from('portal_players').update({ balance: Math.max(0, Number(player.balance || 0) + delta) }).eq('id', player.id);
+        await bot.markWelcomeBonusUsed(client, tx);
       }
       try {
         const settings = await bot.getSettings(client);
@@ -191,6 +194,10 @@ module.exports = async (req, res) => {
       }
       if (typeof bot_enabled === 'boolean') payload.bot_enabled = bot_enabled;
       if (typeof req.body.landing_bonus_text === 'string') payload.landing_bonus_text = req.body.landing_bonus_text.trim().slice(0, 140) || null;
+      if (req.body.landing_welcome_bonus_pct !== undefined) {
+        const pct = Number(req.body.landing_welcome_bonus_pct);
+        payload.landing_welcome_bonus_pct = Number.isFinite(pct) && pct > 0 && pct <= 200 ? pct : null;
+      }
       if (existing) { await client.from('portal_settings').update(payload).eq('id', existing.id); }
       else { await client.from('portal_settings').insert(payload); }
       return res.status(200).json({ ok: true });

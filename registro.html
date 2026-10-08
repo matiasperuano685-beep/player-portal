@@ -37,6 +37,13 @@
   .copy { background: none; border: 1px solid var(--border); color: var(--gold); border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer; }
   .ok-title { font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--gold); margin-bottom: 4px; text-align: center; }
   .ok-sub { color: var(--muted); font-size: 0.9rem; text-align: center; margin-bottom: 16px; }
+  /* Ruleta del bono de bienvenida: todas las casillas son el mismo bono (no hay casillas vacías). */
+  .wheel-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+  .wheel-box { position: relative; width: 290px; height: 290px; margin: 6px 0 16px; }
+  .wheel-box svg { width: 100%; height: 100%; transition: transform 4.5s cubic-bezier(0.17, 0.67, 0.12, 0.99); filter: drop-shadow(0 0 24px rgba(245,158,11,0.35)); }
+  .wheel-pin { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 26px solid #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index: 2; }
+  .wheel-note { font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
+  .won { width: 100%; border: 1px solid var(--gold); border-radius: 14px; padding: 12px; margin-bottom: 14px; background: rgba(245,158,11,0.12); font-weight: 700; color: var(--gold-light); text-align: center; }
 </style>
 </head>
 <body>
@@ -48,10 +55,18 @@
     <div class="bonus-text" id="bonus-text"></div>
   </div>
 
-  <h1>Creá tu cuenta en un click</h1>
+  <section class="wheel-wrap" id="wheel-wrap" hidden>
+    <h1>Girá la ruleta 🎰</h1>
+    <p class="sub" id="wheel-sub">Todas las casillas tienen premio: un bono extra en tu primera carga.</p>
+    <div class="wheel-box"><div class="wheel-pin"></div><svg id="wheel" viewBox="-110 -110 220 220"></svg></div>
+    <button class="btn" id="spin-btn" onclick="girar()">GIRAR LA RULETA</button>
+  </section>
+
+  <h1 id="form-title">Creá tu cuenta en un click</h1>
   <p class="sub">Dejanos tu nombre y tu WhatsApp y entrás a jugar al toque.</p>
 
   <section class="card" id="form-card">
+    <div class="won" id="won" hidden></div>
     <div class="error" id="error"></div>
     <label for="name">¿Cuál es tu nombre?</label>
     <input id="name" autocomplete="given-name" maxlength="60" placeholder="Ej: Juan" />
@@ -92,12 +107,58 @@
   }
   const REF = codigoCampana();
 
+  let BONO = 0;
   fetch('/api/player/landing').then(r => r.json()).then(j => {
-    if (j && j.bonus_text) {
+    BONO = Number(j && j.welcome_bonus_pct) || 0;
+    if (BONO > 0) {
+      // Primero la ruleta; el formulario aparece cuando la gira.
+      armarRuleta(BONO);
+      document.getElementById('wheel-wrap').hidden = false;
+      document.getElementById('form-title').hidden = true;
+      document.querySelector('.sub:not(#wheel-sub)').hidden = true;
+      document.getElementById('form-card').hidden = true;
+    } else if (j && j.bonus_text) {
       document.getElementById('bonus-text').textContent = j.bonus_text;
       document.getElementById('bonus').hidden = false;
     }
   }).catch(() => {});
+
+  // 8 casillas, todas con el mismo bono (cambian el color y el ícono).
+  const ICONOS = ['🎁', '💰', '🔥', '🍀', '🎰', '💎', '⭐', '🚀'];
+  function armarRuleta(pct) {
+    const svg = document.getElementById('wheel');
+    const n = ICONOS.length, r = 100, parts = [];
+    for (let i = 0; i < n; i++) {
+      const a0 = (i / n) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
+      const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0), x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
+      const mid = (a0 + a1) / 2, tx = 64 * Math.cos(mid), ty = 64 * Math.sin(mid), rot = (mid * 180) / Math.PI + 90;
+      const fill = i % 2 ? '#1c1203' : '#f59e0b', color = i % 2 ? '#fbbf24' : '#000';
+      parts.push(`<path d="M0 0 L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z" fill="${fill}" stroke="#fbbf24" stroke-width="1.5"/>`);
+      parts.push(`<g transform="translate(${tx} ${ty}) rotate(${rot})"><text text-anchor="middle" font-family="Oswald, sans-serif" font-weight="700" font-size="17" fill="${color}">${pct}%</text><text y="18" text-anchor="middle" font-size="13">${ICONOS[i]}</text></g>`);
+    }
+    parts.push('<circle r="20" fill="#050300" stroke="#fbbf24" stroke-width="3"/><text y="6" text-anchor="middle" font-size="16">🎰</text>');
+    svg.innerHTML = parts.join('');
+  }
+
+  let girada = false;
+  function girar() {
+    if (girada) return;
+    girada = true;
+    const btn = document.getElementById('spin-btn');
+    btn.disabled = true; btn.textContent = 'GIRANDO...';
+    const vueltas = 5 + Math.floor(Math.random() * 3);
+    const extra = Math.floor(Math.random() * 360);
+    document.getElementById('wheel').style.transform = `rotate(${vueltas * 360 + extra}deg)`;
+    setTimeout(() => {
+      document.getElementById('wheel-wrap').hidden = true;
+      const won = document.getElementById('won');
+      won.textContent = `🎉 ¡Ganaste ${BONO}% extra en tu primera carga! Creá tu cuenta para reclamarlo.`;
+      won.hidden = false;
+      document.getElementById('form-title').hidden = false;
+      document.getElementById('form-card').hidden = false;
+      document.getElementById('name').focus();
+    }, 4700);
+  }
 
   function mostrarError(msg) {
     const e = document.getElementById('error');
