@@ -22,6 +22,10 @@
     {
       "path": "/api/cron/support",
       "schedule": "0 21 */2 * *"
+    },
+    {
+      "path": "/api/cron/inactivos",
+      "schedule": "0 20 * * *"
     }
   ],
   "redirects": [
