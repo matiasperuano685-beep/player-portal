@@ -1135,7 +1135,7 @@ async function requestDeposit() {
     const r = await authFetch('/api/player/deposit', { method:'POST', body: JSON.stringify({amount: Number(amount), notes}) });
     const j = await r.json();
     if (j.error) throw new Error(j.error);
-    showAlert('dep', 'success', '✅ Solicitud enviada. Un operador la aprobará pronto.');
+    showAlert('dep', 'success', '✅ Solicitud enviada. Te respondemos por el chat 💬');
     let msg = `💰 SOLICITUD DE CARGA\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}`;
     if (notes) msg += `\n📝 Nota: ${notes}`;
     await sendChatAutoMessage(msg);
@@ -1147,6 +1147,9 @@ async function requestDeposit() {
     document.getElementById('dep-notes').value = '';
     fileInput.value = '';
     onDepFileChange(fileInput);
+    // La respuesta del cajero llega al chat: se la llevamos ahí para que la vea
+    // (antes se quedaba en esta pantalla y repetía el pedido creyendo que no le respondían).
+    setTimeout(() => goPage('chat'), 1200);
   } catch(e) {
     showAlert('dep', 'error', e.message);
   } finally { btn.disabled = false; btn.textContent = '✓ Solicitar carga'; }
@@ -1180,12 +1183,13 @@ async function requestWithdraw() {
     const r = await authFetch('/api/player/withdraw', { method:'POST', body: JSON.stringify({amount: Number(amount), notes}) });
     const j = await r.json();
     if (j.error) throw new Error(j.error);
-    showAlert('wit', 'success', '✅ Solicitud enviada. Un operador la procesará pronto.');
+    showAlert('wit', 'success', '✅ Solicitud enviada. Te respondemos por el chat 💬');
     const b = currentBank;
     const bankInfo = b ? `\n🏦 Banco: ${b.bank_name||'—'}\n📋 CBU: ${b.cbu||'—'}\n🔤 Alias: ${b.alias||'—'}\n👤 Titular: ${b.account_name||'—'}` : '';
     await sendChatAutoMessage(`💸 SOLICITUD DE RETIRO\n💵 Monto: $${Number(amount).toLocaleString('es-AR')}${notes ? '\n📝 Nota: ' + notes : ''}${bankInfo}`);
     document.getElementById('wit-amount').value = '';
     await loadMeData(); populateWithdraw(); renderHome();
+    setTimeout(() => goPage('chat'), 1200);
   } catch(e) {
     showAlert('wit', 'error', e.message);
   } finally { btn.disabled = false; btn.textContent = '✓ Solicitar retiro'; }
