@@ -1356,12 +1356,14 @@ async function startChatRealtime() {
     });
 }
 
+let lastChatAt = null; // fecha del último mensaje recibido (para pedir solo los nuevos)
 function startChatPoll() {
   if (chatPollInterval) return;
   chatPollInterval = setInterval(async () => {
     if (!chatId || currentPage !== 'chat') return;
+    if (document.hidden) return; // app en segundo plano: no consultar
     try {
-      const r = await authFetch('/api/player/chat');
+      const r = await authFetch('/api/player/chat' + (lastChatAt ? '?after=' + encodeURIComponent(lastChatAt) : ''));
       const j = await r.json();
       if (j.error) return;
       chatBotActive = !!j.bot_active;
@@ -1554,6 +1556,7 @@ function formatChatBody(s) {
 }
 
 function appendChatMessage(m) {
+  if (m && m.created_at && (!lastChatAt || m.created_at > lastChatAt)) lastChatAt = m.created_at;
   const el = document.getElementById('chat-messages');
   if (m.id && el.querySelector(`.chat-msg[data-id="${CSS.escape(String(m.id))}"]`)) return;
   const empty = el.querySelector('.chat-empty');

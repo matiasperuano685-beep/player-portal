@@ -375,10 +375,20 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       try {
         const chat = await bot.getOrCreateChat(client, claim.id);
-        await client.from('portal_chats').update({ unread_player: 0 }).eq('id', chat.id);
-        // Los 200 MÁS RECIENTES (antes traía los 200 más viejos: en chats largos no se veían los últimos).
-        const { data: recent } = await client.from('portal_chat_messages').select('id, sender, body, meta, created_at').eq('chat_id', chat.id).order('created_at', { ascending: false }).limit(200);
-        const messages = (recent || []).reverse();
+        // Consulta periódica de la app (?after=<fecha del último mensaje que tiene): solo lo
+        // nuevo. Antes cada 3 s se bajaban los 200 últimos aunque no hubiera nada nuevo.
+        const after = typeof req.query?.after === 'string' && !isNaN(Date.parse(req.query.after)) ? req.query.after : null;
+        let messages;
+        if (after) {
+          const { data: nuevos } = await client.from('portal_chat_messages').select('id, sender, body, meta, created_at').eq('chat_id', chat.id).gt('created_at', after).order('created_at', { ascending: true }).limit(100);
+          messages = nuevos || [];
+          if (messages.length) await client.from('portal_chats').update({ unread_player: 0 }).eq('id', chat.id);
+        } else {
+          await client.from('portal_chats').update({ unread_player: 0 }).eq('id', chat.id);
+          // Los 200 MÁS RECIENTES (antes traía los 200 más viejos: en chats largos no se veían los últimos).
+          const { data: recent } = await client.from('portal_chat_messages').select('id, sender, body, meta, created_at').eq('chat_id', chat.id).order('created_at', { ascending: false }).limit(200);
+          messages = (recent || []).reverse();
+        }
         const settings = await bot.getSettings(client);
         return res.status(200).json({
           chat_id: chat.id,
