@@ -139,6 +139,7 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, email, googl
   const fields = {
     username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits || null,
     email: email || null, google_sub: google_sub || null, whatsapp_added_at: whatsappDigits ? new Date().toISOString() : null,
+    whatsapp_verified_at: whatsappDigits ? new Date().toISOString() : null,
     password_enc: cifrarClave(password),
     status: 'active', signup_ref: ref || null, signup_source: source, welcome_bonus_pct: welcomePct || null,
   };
@@ -288,10 +289,11 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).end();
     if (rateLimit(req, 3, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
     try {
-      // Solo el nombre: el WhatsApp se verifica después de la primera carga, por el chat.
+      // Nombre + WhatsApp: al crear la cuenta le llega el WhatsApp con su usuario y contraseña.
       const full_name = String(req.body?.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
       const whatsappDigits = String(req.body?.whatsapp || '').replace(/\D/g, '');
       if (full_name.length < 2) return res.status(400).json({ error: 'Poné tu nombre' });
+      if (whatsappDigits.length < 8 || whatsappDigits.length > 15) return res.status(400).json({ error: 'Poné tu número de WhatsApp con característica (ej: 11 2345 6789)' });
       const ref = String(req.body?.ref || '').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '').slice(0, 40) || null;
       const r = await autoCrearCuenta(db(), {
         full_name, whatsappDigits: whatsappDigits.length >= 8 && whatsappDigits.length <= 15 ? whatsappDigits : null,
@@ -380,7 +382,7 @@ module.exports = async (req, res) => {
       if (nuevo !== String(me.whatsapp || '').replace(/\D/g, '')) {
         const { data: otro } = await client.from('portal_players').select('id').ilike('whatsapp', `%${nuevo.slice(-8)}`).neq('id', me.id).neq('status', 'guest').limit(1);
         if (otro?.length) return res.status(409).json({ error: 'Ese WhatsApp ya está en otra cuenta. Escribinos por el chat y lo vemos.' });
-        await client.from('portal_players').update({ whatsapp: nuevo, whatsapp_added_at: new Date().toISOString() }).eq('id', me.id);
+        await client.from('portal_players').update({ whatsapp: nuevo, whatsapp_added_at: new Date().toISOString(), whatsapp_verified_at: new Date().toISOString() }).eq('id', me.id);
       }
       const settings = await bot.getSettings(client);
       // Primer WhatsApp de una cuenta hecha con mail/Google: ahí se asigna el bono.

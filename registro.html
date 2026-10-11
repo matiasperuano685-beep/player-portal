@@ -118,11 +118,6 @@
   .prize .txt { font-weight: 800; font-size: 0.95rem; letter-spacing: 0.04em; margin-top: 4px; }
   #scratch-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; transition: opacity .5s; }
   .scratch-hint { font-size: 0.82rem; color: var(--gold-light); }
-
-  /* Paso 2: WhatsApp para reclamar el bono */
-  .claim { border: 1px solid var(--gold); border-radius: 16px; padding: 16px; margin: 14px 0; background: linear-gradient(160deg, rgba(245,158,11,0.18), rgba(245,158,11,0.04)); }
-  .claim h3 { font-family: 'Oswald', sans-serif; font-size: 1.35rem; text-transform: uppercase; color: var(--gold-light); }
-  .claim p { color: var(--muted); font-size: 0.88rem; margin: 4px 0 12px; }
 </style>
 </head>
 <body>
@@ -148,21 +143,23 @@
     <div class="badge" id="badge">🎁 BONO DE BIENVENIDA</div>
     <h1>Creá tu cuenta <em>gratis</em><br>y jugá en 1 minuto</h1>
     <p class="promo" id="promo">20% extra en tu primera carga</p>
-    <p class="sub">Solo tu nombre. Te damos tu usuario y contraseña al instante y reclamás tu bono en el chat.</p>
+    <p class="sub">Solo tu nombre y tu WhatsApp. Tu usuario y contraseña te llegan al instante por WhatsApp.</p>
 
     <div class="card">
       <div class="error" id="error"></div>
       <label for="name">Tu nombre</label>
-      <input id="name" autocomplete="given-name" maxlength="60" placeholder="Ej: Juan" onkeydown="if(event.key==='Enter')crear()" />
+      <input id="name" autocomplete="given-name" maxlength="60" placeholder="Ej: Juan" />
+      <label for="wa">Tu WhatsApp</label>
+      <input id="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" onkeydown="if(event.key==='Enter')crear()" />
       <button class="btn" id="btn" onclick="crear()">CREAR MI CUENTA GRATIS ➜</button>
       <button class="btn btn-ghost" id="btn-login" hidden onclick="irAlPortal()">YA TENGO CUENTA · INGRESAR</button>
       <p class="micro">🔒 Sin datos bancarios · Sin descargar nada</p>
     </div>
 
     <div class="steps">
-      <div class="step"><div class="ico">✍️</div><p><strong>1. Registrate</strong>Solo tu nombre</p></div>
-      <div class="step"><div class="ico">🔑</div><p><strong>2. Tu usuario</strong>Al instante</p></div>
-      <div class="step"><div class="ico">🎁</div><p><strong>3. Reclamá el bono</strong>En el chat</p></div>
+      <div class="step"><div class="ico">✍️</div><p><strong>1. Registrate</strong>Nombre y WhatsApp</p></div>
+      <div class="step"><div class="ico">📲</div><p><strong>2. Recibí tu usuario</strong>Al instante</p></div>
+      <div class="step"><div class="ico">🎰</div><p><strong>3. Cargá y jugá</strong>Con tu bono</p></div>
     </div>
     <div class="trust"><span>⚡ Cargas al instante</span><span>💸 Retiros rápidos</span><span>🕐 Atención 24/7</span></div>
   </section>
@@ -172,19 +169,29 @@
     <div class="ok-head">
       <div class="ok-check">✓</div>
       <div class="ok-title">¡Tu cuenta está lista!</div>
-      <div class="ok-sub" id="ok-sub">Guardá estos datos para entrar a jugar.</div>
+      <div class="ok-sub">Guardá estos datos para entrar a jugar.</div>
     </div>
-    <div class="claim" id="claim">
-      <h3>🎁 Tu bono: <span id="claim-pct">20</span>% extra</h3>
-      <p>Reclamalo en el chat: tocá el botón, hacé tu primera carga y se suma solo.</p>
-      <button class="btn" onclick="irAlPortal(true)">RECLAMAR MI BONO EN EL CHAT ➜</button>
+    <div class="wa-box">
+      <p>📲 Te mandamos tus datos por <b>WhatsApp</b>. <b>Respondé ese mensaje para reclamar tu bono</b> 🎁</p>
+      <button class="btn-wa" id="btn-nollego" onclick="abrirReenvio()">No me llegó el WhatsApp</button>
+      <div class="resend" id="resend" hidden>
+        <label for="wa2">Revisá tu número y lo reenviamos</label>
+        <input id="wa2" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" />
+        <button class="btn" id="btn-reenviar" onclick="reenviar()">REENVIAR WHATSAPP</button>
+        <div class="resend-msg" id="resend-msg"></div>
+        <button class="btn-wa" onclick="irAlPortal(true)">💬 Hablar con soporte en el chat</button>
+      </div>
     </div>
     <div class="card" style="margin-top:0">
       <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
       <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
     </div>
 
-    <a class="casino-link" id="casino-link" target="_blank" rel="noopener" hidden>Ir directo al casino</a>
+    <div class="card" id="cta-card">
+      <div class="won" id="won-ok" hidden></div>
+      <button class="btn" onclick="irAlPortal(true)">CARGAR Y EMPEZAR A JUGAR ➜</button>
+      <a class="casino-link" id="casino-link" target="_blank" rel="noopener" hidden>Ir directo al casino</a>
+    </div>
   </section>
 </main>
 <script>
@@ -297,23 +304,29 @@
     const btn = document.getElementById('btn');
     document.getElementById('error').style.display = 'none';
     const full_name = document.getElementById('name').value.trim();
+    const whatsapp = document.getElementById('wa').value.trim();
     if (full_name.length < 2) return mostrarError('Poné tu nombre');
-    const body = { full_name, ref: REF };
+    if (whatsapp.replace(/\D/g, '').length < 8) return mostrarError('Poné tu número de WhatsApp con característica (ej: 11 2345 6789)');
     btn.disabled = true;
     btn.textContent = 'CREANDO TU CUENTA...';
     try {
-      const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name, whatsapp, ref: REF }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (j.existing) document.getElementById('btn-login').hidden = false;
         throw new Error(j.error || 'No pudimos crear tu cuenta. Probá de nuevo.');
       }
       sesion = j.token;
+      waIngresado = whatsapp;
+      premio = Number(j.welcome_pct) || 0;
       document.getElementById('u').textContent = j.credentials.username;
       document.getElementById('p').textContent = j.credentials.password;
       if (j.casino_url) { const a = document.getElementById('casino-link'); a.href = j.casino_url; a.hidden = false; }
-      document.getElementById('claim-pct').textContent = Number(j.bonus_pct) || bonoPct;
-      if (!(Number(j.bonus_pct) > 0)) document.getElementById('claim').hidden = true;
+      if (premio) {
+        const wonOk = document.getElementById('won-ok');
+        wonOk.textContent = `🎁 Tu bono: ${premio}% extra en tu primera carga. Se suma solo cuando cargues.`;
+        wonOk.hidden = false;
+      }
       document.getElementById('vista-registro').hidden = true;
       document.getElementById('vista-ok').hidden = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -326,6 +339,38 @@
 
   // "No me llegó el WhatsApp": muestra el número para corregirlo y lo reenvía
   // (sale por otra línea al azar). Si cambia el número, queda guardado en su cuenta.
+  function abrirReenvio() {
+    document.getElementById('wa2').value = waIngresado;
+    document.getElementById('resend').hidden = false;
+    document.getElementById('btn-nollego').hidden = true;
+    document.getElementById('wa2').focus();
+  }
+
+  async function reenviar() {
+    const btn = document.getElementById('btn-reenviar');
+    const msg = document.getElementById('resend-msg');
+    const whatsapp = document.getElementById('wa2').value.trim();
+    msg.className = 'resend-msg'; msg.textContent = '';
+    if (whatsapp.replace(/\D/g, '').length < 8) { msg.className = 'resend-msg err'; msg.textContent = 'Poné tu número con característica (ej: 11 2345 6789)'; return; }
+    btn.disabled = true; btn.textContent = 'REENVIANDO...';
+    try {
+      const r = await fetch('/api/player/signup-resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion}` },
+        body: JSON.stringify({ whatsapp, password: document.getElementById('p').textContent }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'No pudimos reenviarlo. Probá de nuevo.');
+      waIngresado = whatsapp;
+      msg.className = 'resend-msg ok';
+      msg.textContent = '✅ Listo, te lo reenviamos. Puede tardar un minuto. Si no llega, tocá "Hablar con soporte en el chat".';
+    } catch (e) {
+      msg.className = 'resend-msg err'; msg.textContent = e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = 'REENVIAR WHATSAPP';
+    }
+  }
+
   function copiar(id, btn) {
     const t = document.getElementById(id).textContent;
     (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => {
