@@ -93,20 +93,42 @@
   .copy { background: none; border: 1px solid var(--border); color: var(--gold); border-radius: 8px; padding: 7px 11px; font-size: 0.82rem; cursor: pointer; flex-shrink: 0; }
   .casino-link { display: block; text-align: center; margin-top: 12px; color: var(--gold-light); font-size: 0.9rem; }
 
-  /* Ruleta de bienvenida (se gira después de crear la cuenta; el premio lo sortea el servidor) */
-  .wheel-card { text-align: center; }
-  .wheel-card h2 { font-family: 'Oswald', sans-serif; font-size: 1.45rem; text-transform: uppercase; }
-  .wheel-card p { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
-  .wheel-box { position: relative; width: 260px; height: 260px; margin: 14px auto 14px; }
-  .wheel-box svg { width: 100%; height: 100%; transition: transform 4.5s cubic-bezier(0.17, 0.67, 0.12, 0.99); filter: drop-shadow(0 0 22px rgba(245,158,11,0.35)); }
-  .wheel-pin { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); border-left: 14px solid transparent; border-right: 14px solid transparent;
-    border-top: 26px solid #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index: 2; }
   .won { border: 1px solid var(--gold); border-radius: 14px; padding: 12px; margin: 4px 0 12px; background: rgba(245,158,11,0.14);
     font-weight: 800; color: var(--gold-light); text-align: center; font-size: 1.02rem; }
-  .odds { font-size: 0.72rem; color: #8a8173; margin-top: 10px; }
+
+  /* Raspadita de bienvenida (ventana al entrar). Debajo de la capa plateada está el premio. */
+  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.82); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal-box { width: 100%; max-width: 360px; background: linear-gradient(170deg, #241604, #0d0801); border: 1px solid var(--gold);
+    border-radius: 22px; padding: 22px 18px 18px; text-align: center; box-shadow: 0 0 60px rgba(245,158,11,0.35); position: relative; animation: pop .35s ease-out; }
+  @keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
+  .modal-box h2 { font-family: 'Oswald', sans-serif; font-size: 1.6rem; text-transform: uppercase; line-height: 1.1; }
+  .modal-box .m-sub { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+  .scratch { position: relative; width: 100%; max-width: 300px; aspect-ratio: 3 / 2; margin: 16px auto 14px; border-radius: 16px; overflow: hidden;
+    border: 2px dashed rgba(245,158,11,0.6); user-select: none; -webkit-user-select: none; }
+  .prize { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle, #3b2405, #120c02); }
+  .prize .pct { font-family: 'Oswald', sans-serif; font-size: 4rem; font-weight: 700; color: var(--gold); line-height: 1; text-shadow: 0 0 20px rgba(245,158,11,0.5); }
+  .prize .txt { font-weight: 800; font-size: 0.95rem; letter-spacing: 0.04em; margin-top: 4px; }
+  #scratch-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; transition: opacity .5s; }
+  .scratch-hint { font-size: 0.82rem; color: var(--gold-light); }
 </style>
 </head>
 <body>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+  <div class="modal-box">
+    <button class="modal-close" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
+    <h2 id="m-title">🎁 Tenés un regalo</h2>
+    <p class="m-sub">Raspá con el dedo y descubrí tu bono de bienvenida</p>
+    <div class="scratch" id="scratch">
+      <div class="prize"><div class="pct"><span id="m-pct">20</span>%</div><div class="txt">EXTRA EN TU PRIMERA CARGA</div></div>
+      <canvas id="scratch-canvas"></canvas>
+    </div>
+    <p class="scratch-hint" id="scratch-hint">👆 Raspá acá</p>
+    <button class="btn" id="btn-reclamar" hidden onclick="cerrarRaspadita()">RECLAMAR MI BONO ➜</button>
+  </div>
+</div>
 <main>
   <header class="brand"><img src="/icons/icon-192.png" alt="" onerror="this.remove()"><span>Capi<b>Bet</b></span></header>
 
@@ -136,7 +158,7 @@
     <div class="trust"><span>⚡ Cargas al instante</span><span>💸 Retiros rápidos</span><span>🕐 Atención 24/7</span></div>
   </section>
 
-  <!-- 2) Cuenta creada: datos + ruleta del bono + ir a cargar -->
+  <!-- 2) Cuenta creada: datos + bono + ir a cargar -->
   <section id="vista-ok" hidden>
     <div class="ok-head">
       <div class="ok-check">✓</div>
@@ -159,15 +181,6 @@
       <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
     </div>
 
-    <div class="card wheel-card" id="wheel-card" hidden>
-      <h2>🎁 Girá y descubrí tu bono</h2>
-      <p>Se suma solo a tu primera carga.</p>
-      <div class="wheel-box"><div class="wheel-pin"></div><svg id="wheel" viewBox="-110 -110 220 220"></svg></div>
-      <div class="won" id="won" hidden></div>
-      <button class="btn" id="btn-girar" onclick="girar()">GIRAR LA RULETA</button>
-      <div class="odds" id="odds"></div>
-    </div>
-
     <div class="card" id="cta-card">
       <div class="won" id="won-ok" hidden></div>
       <button class="btn" onclick="irAlPortal(true)">CARGAR Y EMPEZAR A JUGAR ➜</button>
@@ -181,7 +194,7 @@
   let sesion = null;
   let premio = 0;
   let waIngresado = '';
-  let segmentos = [];
+  let bonoPct = 20;
 
   // Código de afiliado / campaña: ?ref=elnene (también ?a=, ?codigo= o utm_campaign).
   // Se recuerda 30 días por si se registra más tarde (gana el primero que lo trajo).
@@ -198,16 +211,82 @@
   }
   const REF = codigoCampana();
 
-  // Titular del bono: el máximo de la ruleta o el texto que se carga en el admin.
+  // % del bono (el de bienvenida del admin, hoy 20%) para el titular y la raspadita.
   fetch('/api/player/landing').then(r => r.json()).then(j => {
-    if (j && Array.isArray(j.wheel) && j.wheel.length) {
-      // El premio mínimo de la ruleta (lo que gana seguro): hoy 20%.
-      const min = Math.min(...j.wheel.map(x => Number(x.pct) || 0).filter(n => n > 0));
-      document.getElementById('promo').textContent = `${min}% extra en tu primera carga`;
+    if (j && Number(j.bonus_pct) > 0) {
+      bonoPct = Number(j.bonus_pct);
+      document.getElementById('promo').textContent = `${bonoPct}% extra en tu primera carga`;
+      document.getElementById('m-pct').textContent = bonoPct;
     } else if (j && j.bonus_text) {
       document.getElementById('promo').textContent = j.bonus_text;
     }
   }).catch(() => {});
+
+  // ── Raspadita ──
+  // Capa plateada en un canvas; se "borra" con el dedo o el mouse. Al destapar ~45% se
+  // muestra entera y aparece "Reclamar mi bono". Siempre es el mismo premio (no hay sorteo).
+  (function raspadita() {
+    const cv = document.getElementById('scratch-canvas');
+    const ctx = cv.getContext('2d');
+    const box = document.getElementById('scratch');
+    let listo = false, rascando = false, trazos = 0, ultimo = null;
+    function pintar() {
+      const r = box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      cv.width = r.width * dpr; cv.height = r.height * dpr; ctx.scale(dpr, dpr);
+      const g = ctx.createLinearGradient(0, 0, r.width, r.height);
+      g.addColorStop(0, '#d6d3d1'); g.addColorStop(0.5, '#a8a29e'); g.addColorStop(1, '#e7e5e4');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, r.width, r.height);
+      ctx.fillStyle = '#57534e'; ctx.font = '700 20px Oswald, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('RASPÁ ACÁ', r.width / 2, r.height / 2 - 4);
+      ctx.font = '600 13px Inter, sans-serif'; ctx.fillText('🎁 tu bono de bienvenida', r.width / 2, r.height / 2 + 18);
+      ctx.globalCompositeOperation = 'destination-out';
+    }
+    function punto(e) {
+      const r = cv.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    }
+    function borrar(e) {
+      if (!rascando || listo) return;
+      e.preventDefault();
+      const { x, y } = punto(e);
+      // Trazo continuo desde el punto anterior: un dedo rápido manda pocos eventos.
+      ctx.lineWidth = 44; ctx.lineCap = 'round';
+      ctx.beginPath();
+      if (ultimo) { ctx.moveTo(ultimo.x, ultimo.y); ctx.lineTo(x, y); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
+      ultimo = { x, y };
+      if (++trazos % 6 === 0) revisar();
+    }
+    function revisar() {
+      const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      let vacio = 0;
+      for (let i = 3; i < d.length; i += 64) if (d[i] === 0) vacio++;
+      if (vacio / (d.length / 64) > 0.45) destapar();
+    }
+    function destapar() {
+      if (listo) return;
+      listo = true;
+      cv.style.opacity = '0';
+      setTimeout(() => cv.remove(), 500);
+      document.getElementById('scratch-hint').hidden = true;
+      document.getElementById('btn-reclamar').hidden = false;
+      document.getElementById('m-title').textContent = '🎉 ¡Ganaste!';
+      document.querySelector('.m-sub').textContent = 'Creá tu cuenta y se suma solo a tu primera carga.';
+      if (navigator.vibrate) navigator.vibrate(80);
+    }
+    const ini = (e) => { rascando = true; ultimo = null; borrar(e); };
+    const fin = () => { rascando = false; ultimo = null; if (!listo) revisar(); };
+    cv.addEventListener('mousedown', ini); cv.addEventListener('mousemove', borrar); window.addEventListener('mouseup', fin);
+    cv.addEventListener('touchstart', ini, { passive: false }); cv.addEventListener('touchmove', borrar, { passive: false }); cv.addEventListener('touchend', fin);
+    requestAnimationFrame(pintar);
+  })();
+
+  function cerrarRaspadita() {
+    const m = document.getElementById('modal');
+    if (m) m.remove();
+    document.getElementById('name').focus();
+  }
 
   function mostrarError(msg) {
     const e = document.getElementById('error');
@@ -237,12 +316,10 @@
       document.getElementById('u').textContent = j.credentials.username;
       document.getElementById('p').textContent = j.credentials.password;
       if (j.casino_url) { const a = document.getElementById('casino-link'); a.href = j.casino_url; a.hidden = false; }
-      if (premio && Array.isArray(j.wheel) && j.wheel.length) {
-        armarRuleta(j.wheel);
-        const total = j.wheel.reduce((a, x) => a + Number(x.weight), 0);
-        document.getElementById('odds').textContent = 'Probabilidades: ' + j.wheel.map(x => `${x.pct}% (${Math.round(Number(x.weight) / total * 1000) / 10}%)`).join(' · ');
-        document.getElementById('wheel-card').hidden = false;
-        document.getElementById('cta-card').hidden = true;
+      if (premio) {
+        const wonOk = document.getElementById('won-ok');
+        wonOk.textContent = `🎁 Tu bono: ${premio}% extra en tu primera carga. Se suma solo cuando cargues.`;
+        wonOk.hidden = false;
       }
       document.getElementById('vista-registro').hidden = true;
       document.getElementById('vista-ok').hidden = false;
@@ -252,51 +329,6 @@
     } finally {
       btn.disabled = false; btn.textContent = 'CREAR MI CUENTA GRATIS ➜';
     }
-  }
-
-  // 8 casillas: el premio más común intercalado con los demás.
-  function armarRuleta(premios) {
-    const orden = [...premios].sort((a, b) => b.weight - a.weight).map(x => Number(x.pct));
-    const base = orden[0], otros = orden.slice(1);
-    segmentos = [];
-    for (let i = 0; i < 8; i++) segmentos.push(i % 2 === 0 || !otros.length ? base : otros[Math.floor(i / 2) % otros.length]);
-    const svg = document.getElementById('wheel');
-    const n = segmentos.length, r = 100, parts = [];
-    for (let i = 0; i < n; i++) {
-      const a0 = (i / n) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
-      const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0), x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
-      const mid = (a0 + a1) / 2, tx = 64 * Math.cos(mid), ty = 64 * Math.sin(mid), rot = (mid * 180) / Math.PI + 90;
-      const grande = segmentos[i] !== base;
-      const fill = grande ? '#7c2d12' : (i % 4 === 0 ? '#f59e0b' : '#1c1203');
-      const color = grande ? '#fde68a' : (i % 4 === 0 ? '#000' : '#fbbf24');
-      parts.push(`<path d="M0 0 L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z" fill="${fill}" stroke="#fbbf24" stroke-width="1.5"/>`);
-      parts.push(`<g transform="translate(${tx} ${ty}) rotate(${rot})"><text text-anchor="middle" font-family="Oswald, sans-serif" font-weight="700" font-size="${grande ? 19 : 17}" fill="${color}">${segmentos[i]}%</text><text y="16" text-anchor="middle" font-size="9" fill="${color}">EXTRA</text></g>`);
-    }
-    parts.push('<circle r="20" fill="#050300" stroke="#fbbf24" stroke-width="3"/><text y="6" text-anchor="middle" font-size="16">🎰</text>');
-    svg.innerHTML = parts.join('');
-  }
-
-  /** Anima la ruleta hasta el premio que ya sorteó el servidor al crear la cuenta. */
-  function girar() {
-    const btn = document.getElementById('btn-girar');
-    btn.disabled = true; btn.textContent = 'GIRANDO...';
-    const n = segmentos.length, seg = 360 / n;
-    const posibles = segmentos.map((v, i) => (v === premio ? i : -1)).filter(i => i >= 0);
-    const i = posibles[Math.floor(Math.random() * posibles.length)] ?? 0;
-    const jitter = (Math.random() - 0.5) * seg * 0.6;
-    const vueltas = 5 + Math.floor(Math.random() * 3);
-    document.getElementById('wheel').style.transform = `rotate(${vueltas * 360 - (i + 0.5) * seg + jitter}deg)`;
-    setTimeout(() => {
-      const won = document.getElementById('won');
-      won.textContent = `🎉 ¡Ganaste ${premio}% extra en tu primera carga!`;
-      won.hidden = false;
-      btn.hidden = true;
-      const wonOk = document.getElementById('won-ok');
-      wonOk.textContent = `🎁 Tu bono: ${premio}% extra. Se suma solo cuando cargues.`;
-      wonOk.hidden = false;
-      document.getElementById('cta-card').hidden = false;
-      document.getElementById('cta-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 4700);
   }
 
   // "No me llegó el WhatsApp": muestra el número para corregirlo y lo reenvía

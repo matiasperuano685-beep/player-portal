@@ -54,10 +54,11 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
   if (source === 'landing' && wheelOn(settings)) {
     const { data: spin } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
     welcomePct = Number(spin?.pct || 0);
-    // La landing nueva gira la ruleta DESPUÉS de crear la cuenta: el sorteo se hace acá
-    // (servidor, uno por WhatsApp) y la página solo anima hasta el premio que salió.
+    // Raspadita de la landing: el bono es SIEMPRE el % de bienvenida del admin
+    // (landing_welcome_bonus_pct, hoy 20%). Ya no hay sorteo. Queda registrado en
+    // landing_spins (uno por WhatsApp) como antes, para la primera carga.
     if (!welcomePct) {
-      welcomePct = drawPrize(wheelPrizes(settings));
+      welcomePct = Number(settings.landing_welcome_bonus_pct);
       const { error: spinErr } = await client.from('landing_spins').insert({ whatsapp_last8: last8, pct: welcomePct, ref: ref || null });
       if (spinErr) {
         const { data: again } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
@@ -100,7 +101,6 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
       credentials: { username, password },
       casino_url: settings?.casino_url || null,
       welcome_pct: welcomePct || null,
-      wheel: welcomePct ? wheelPrizes(settings) : null,
     },
   };
 }
@@ -163,6 +163,7 @@ module.exports = async (req, res) => {
       const settings = await bot.getSettings(db());
       return res.status(200).json({
         bonus_text: settings?.landing_bonus_text || null,
+        bonus_pct: wheelOn(settings) ? Number(settings.landing_welcome_bonus_pct) : null,
         wheel: wheelOn(settings) ? wheelPrizes(settings) : null,
       });
     } catch { return res.status(200).json({ bonus_text: null }); }
