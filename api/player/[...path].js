@@ -54,6 +54,16 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
   if (source === 'landing' && wheelOn(settings)) {
     const { data: spin } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
     welcomePct = Number(spin?.pct || 0);
+    // La landing nueva gira la ruleta DESPUÉS de crear la cuenta: el sorteo se hace acá
+    // (servidor, uno por WhatsApp) y la página solo anima hasta el premio que salió.
+    if (!welcomePct) {
+      welcomePct = drawPrize(wheelPrizes(settings));
+      const { error: spinErr } = await client.from('landing_spins').insert({ whatsapp_last8: last8, pct: welcomePct, ref: ref || null });
+      if (spinErr) {
+        const { data: again } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
+        welcomePct = Number(again?.pct || welcomePct);
+      }
+    }
   }
   const fields = { username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active', signup_ref: ref || null, signup_source: source, welcome_bonus_pct: welcomePct || null };
   const q = invitado
@@ -78,6 +88,10 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
   lineas.push('', 'Para cargar fichas tocá 💰 Cargar acá en el chat. ¡Mucha suerte! 🍀');
   await bot.botSay(client, chat.id, lineas.join('\n'), { signup_welcome: true });
 
+  // Confirmación por WhatsApp (desde cualquier línea conectada del CRM). No frena el alta.
+  await casino.avisarWhatsApp({ whatsapp: whatsappDigits, full_name, username, password, casino_url: settings?.casino_url || null, bonus_pct: welcomePct || null, source })
+    .catch((e) => console.warn('signup: WhatsApp de confirmación no enviado:', e.message));
+
   return {
     ok: true, status: 201,
     body: {
@@ -85,6 +99,8 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
       player: { id: player.id, username, full_name, whatsapp: whatsappDigits, casino_username: username, balance: 0, status: 'active' },
       credentials: { username, password },
       casino_url: settings?.casino_url || null,
+      welcome_pct: welcomePct || null,
+      wheel: welcomePct ? wheelPrizes(settings) : null,
     },
   };
 }

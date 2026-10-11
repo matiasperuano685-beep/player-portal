@@ -68,4 +68,25 @@ async function crearJugador({ username, password }) {
   return data;
 }
 
-module.exports = { MIN_AUTO, MAX_AUTO, configurado, autoLoadActivo, montoPermitido, cargar, crearJugador };
+// WhatsApp de confirmación de la cuenta nueva: lo manda el CRM (portal-signup-whatsapp)
+// por cualquier línea conectada. La función responde al instante y envía en segundo plano.
+async function avisarWhatsApp(datos) {
+  const url = String(process.env.CASINO_OPS_URL || '').replace(/\/casino-ops\/?$/, '/portal-signup-whatsapp');
+  if (!configurado() || !url.includes('portal-signup-whatsapp')) return { ok: false, skipped: true };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.CASINO_OPS_ANON_KEY}`,
+      apikey: process.env.CASINO_OPS_ANON_KEY,
+      'x-bot-secret': process.env.CASINO_OPS_BOT_SECRET,
+    },
+    body: JSON.stringify(datos),
+    signal: AbortSignal.timeout(8000),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+  return data;
+}
+
+module.exports = { MIN_AUTO, MAX_AUTO, configurado, autoLoadActivo, montoPermitido, cargar, crearJugador, avisarWhatsApp };
