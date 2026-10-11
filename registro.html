@@ -41,7 +41,19 @@
   .sub { margin-top: 8px; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
 
   /* Logo: capibara con el cartel CAPIBET (PNG con fondo transparente) */
-  .logo-capi { display: block; width: 128px; height: auto; margin: 0 auto 12px; filter: drop-shadow(0 8px 18px rgba(245,158,11,0.25)); }
+  .logo-capi { display: block; width: 190px; height: auto; margin: 0 auto 6px; }
+  /* Botones e imágenes en estilo "pop-up de bono" (PNG sin fondo, ver CAPI/graficos_capibet.py) */
+  .img-btn { display: block; width: 100%; background: none; border: none; padding: 0; cursor: pointer; transition: transform .12s, opacity .2s;
+    animation: pulse 2.4s ease-in-out infinite; -webkit-tap-highlight-color: transparent; }
+  .img-btn img { display: block; width: 100%; height: auto; pointer-events: none; }
+  .img-btn:active { transform: scale(0.97); }
+  .img-btn:disabled { opacity: 0.6; cursor: wait; animation: none; }
+  .btn-estado { text-align: center; font-size: 0.85rem; color: var(--gold-light); margin-top: 6px; min-height: 1.1em; }
+  .promo-img { display: block; width: 100%; max-width: 360px; height: auto; margin: 10px 0 2px; }
+  .modal-x { position: absolute; top: 18px; right: 18px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(0,0,0,0.55);
+    color: #fff; font-size: 1.5rem; cursor: pointer; z-index: 2; }
+  .banner-step { cursor: pointer; animation: pop .35s ease-out; }
+  .banner-step img { display: block; width: 100%; max-width: 440px; height: auto; margin: 0 auto; animation: pulse 2.4s ease-in-out infinite; }
   .modal-box .capi-top { position: absolute; left: 50%; top: -96px; transform: translateX(-50%); width: 124px; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); pointer-events: none; }
   .modal-box { margin-top: 84px; padding-top: 38px; }
 
@@ -122,7 +134,11 @@
 </head>
 <body>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
-  <div class="modal-box">
+  <button class="modal-x" id="banner-x" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
+  <div class="banner-step" id="banner-step" onclick="abrirRaspadita()">
+    <img src="/icons/banner-premio.png" alt="CapiBet: click acá y reclamá tu premio" width="522" height="165">
+  </div>
+  <div class="modal-box" id="scratch-step" hidden>
     <img class="capi-top" src="/icons/capibara.png" alt="" width="124" height="113">
     <button class="modal-close" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
     <h2 id="m-title">🎁 Tenés un regalo</h2>
@@ -132,17 +148,18 @@
       <canvas id="scratch-canvas"></canvas>
     </div>
     <p class="scratch-hint" id="scratch-hint">👆 Raspá acá</p>
-    <button class="btn" id="btn-reclamar" hidden onclick="cerrarRaspadita()">RECLAMAR MI BONO ➜</button>
+    <button class="img-btn" id="btn-reclamar" hidden onclick="cerrarRaspadita()"><img src="/icons/btn-reclamar.png" alt="Reclamar mi bono" width="480" height="118"></button>
   </div>
 </div>
 <main>
-  <img class="logo-capi" src="/icons/capibara.png" alt="CapiBet" width="128" height="116">
+  <img class="logo-capi" src="/icons/logo-capibet-pro.png" alt="CapiBet" width="190" height="140">
 
   <!-- 1) Registro: la idea entera arriba de todo, el formulario sin tener que bajar -->
   <section id="vista-registro">
     <div class="badge" id="badge">🎁 BONO DE BIENVENIDA</div>
     <h1>Creá tu cuenta <em>gratis</em><br>y jugá en 1 minuto</h1>
-    <p class="promo" id="promo">20% extra en tu primera carga</p>
+    <img class="promo-img" id="promo-img" src="/icons/badge-bono-20.png" alt="20% extra en tu primera carga" width="420" height="140">
+    <p class="promo" id="promo" hidden>20% extra en tu primera carga</p>
     <p class="sub">Solo tu nombre y tu WhatsApp. Tu usuario y contraseña te llegan al instante por WhatsApp.</p>
 
     <div class="card">
@@ -151,7 +168,8 @@
       <input id="name" autocomplete="given-name" maxlength="60" placeholder="Ej: Juan" />
       <label for="wa">Tu WhatsApp</label>
       <input id="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" onkeydown="if(event.key==='Enter')crear()" />
-      <button class="btn" id="btn" onclick="crear()">CREAR MI CUENTA GRATIS ➜</button>
+      <button class="img-btn" id="btn" onclick="crear()"><img src="/icons/btn-crear.png" alt="Crear mi cuenta gratis" width="480" height="118"></button>
+      <div class="btn-estado" id="btn-estado"></div>
       <button class="btn btn-ghost" id="btn-login" hidden onclick="irAlPortal()">YA TENGO CUENTA · INGRESAR</button>
       <p class="micro">🔒 Sin datos bancarios · Sin descargar nada</p>
     </div>
@@ -189,7 +207,7 @@
 
     <div class="card" id="cta-card">
       <div class="won" id="won-ok" hidden></div>
-      <button class="btn" onclick="irAlPortal(true)">CARGAR Y EMPEZAR A JUGAR ➜</button>
+      <button class="img-btn" onclick="irAlPortal(true)"><img src="/icons/btn-jugar.png" alt="Cargar y empezar a jugar" width="486" height="118"></button>
       <a class="casino-link" id="casino-link" target="_blank" rel="noopener" hidden>Ir directo al casino</a>
     </div>
   </section>
@@ -222,9 +240,11 @@
     if (j && Number(j.bonus_pct) > 0) {
       bonoPct = Number(j.bonus_pct);
       document.getElementById('promo').textContent = `${bonoPct}% extra en tu primera carga`;
+      if (bonoPct !== 20) { document.getElementById('promo-img').hidden = true; document.getElementById('promo').hidden = false; }
       document.getElementById('m-pct').textContent = bonoPct;
     } else if (j && j.bonus_text) {
       document.getElementById('promo').textContent = j.bonus_text;
+      document.getElementById('promo-img').hidden = true; document.getElementById('promo').hidden = false;
     }
   }).catch(() => {});
 
@@ -285,8 +305,15 @@
     const fin = () => { rascando = false; ultimo = null; if (!listo) revisar(); };
     cv.addEventListener('mousedown', ini); cv.addEventListener('mousemove', borrar); window.addEventListener('mouseup', fin);
     cv.addEventListener('touchstart', ini, { passive: false }); cv.addEventListener('touchmove', borrar, { passive: false }); cv.addEventListener('touchend', fin);
-    requestAnimationFrame(pintar);
+    window.__pintarRaspadita = pintar;
   })();
+
+  function abrirRaspadita() {
+    document.getElementById('banner-step').hidden = true;
+    document.getElementById('banner-x').hidden = true;
+    document.getElementById('scratch-step').hidden = false;
+    requestAnimationFrame(() => window.__pintarRaspadita && window.__pintarRaspadita());
+  }
 
   function cerrarRaspadita() {
     const m = document.getElementById('modal');
@@ -308,7 +335,7 @@
     if (full_name.length < 2) return mostrarError('Poné tu nombre');
     if (whatsapp.replace(/\D/g, '').length < 8) return mostrarError('Poné tu número de WhatsApp con característica (ej: 11 2345 6789)');
     btn.disabled = true;
-    btn.textContent = 'CREANDO TU CUENTA...';
+    document.getElementById('btn-estado').textContent = 'Creando tu cuenta…';
     try {
       const r = await fetch('/api/player/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name, whatsapp, ref: REF }) });
       const j = await r.json().catch(() => ({}));
@@ -333,7 +360,7 @@
     } catch (e) {
       mostrarError(e.message);
     } finally {
-      btn.disabled = false; btn.textContent = 'CREAR MI CUENTA GRATIS ➜';
+      btn.disabled = false; document.getElementById('btn-estado').textContent = '';
     }
   }
 
