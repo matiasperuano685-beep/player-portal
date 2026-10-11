@@ -24,13 +24,41 @@ function drawPrize(prizes) {
 }
 const wheelOn = (settings) => Number(settings?.landing_welcome_bonus_pct || 0) > 0;
 
-async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref, intro }) {
-  const casino = require('../_casino');
+// Bono de bienvenida de la landing (raspadita): siempre el % del admin
+// (landing_welcome_bonus_pct). Uno por WhatsApp (landing_spins): si ese número ya lo
+// recibió con otra cuenta, no se vuelve a dar.
+async function asignarBonoBienvenida(client, settings, whatsappDigits, ref) {
+  if (!wheelOn(settings) || !whatsappDigits) return 0;
   const last8 = whatsappDigits.slice(-8);
-  const { data: prevs } = await client.from('portal_players').select('id, status').ilike('whatsapp', `%${last8}`).limit(5);
-  const activo = (prevs || []).find((p) => p.status !== 'guest');
-  if (activo) return { ok: false, status: 409, error: 'Ese WhatsApp ya tiene una cuenta. Ingresá con tu usuario o escribinos para recuperarla.' };
-  const invitado = (prevs || []).find((p) => p.status === 'guest');
+  const pct = Number(settings.landing_welcome_bonus_pct);
+  const { error } = await client.from('landing_spins').insert({ whatsapp_last8: last8, pct, ref: ref || null });
+  if (!error) return pct;
+  // Ya había un registro de ese número (p. ej. un giro viejo sin cuenta): solo se niega
+  // si alguna cuenta con ese WhatsApp ya recibió el bono.
+  const { data: ya } = await client.from('portal_players').select('id').ilike('whatsapp', `%${last8}`).not('welcome_bonus_pct', 'is', null).limit(1);
+  return ya?.length ? 0 : pct;
+}
+
+// Alta automática (casino + portal). Se identifica por WhatsApp (portal "No tengo
+// usuario"), o por mail / cuenta de Google (landing: el WhatsApp se pide después,
+// para reclamar el bono). Devuelve { ok, status, body } o { ok:false, status, error }.
+async function autoCrearCuenta(client, { full_name, whatsappDigits, email, google_sub, source, ref, intro }) {
+  const casino = require('../_casino');
+  let invitado = null;
+  if (whatsappDigits) {
+    const last8 = whatsappDigits.slice(-8);
+    const { data: prevs } = await client.from('portal_players').select('id, status').ilike('whatsapp', `%${last8}`).limit(5);
+    if ((prevs || []).find((p) => p.status !== 'guest')) return { ok: false, status: 409, error: 'Ese WhatsApp ya tiene una cuenta. Ingresá con tu usuario o escribinos para recuperarla.' };
+    invitado = (prevs || []).find((p) => p.status === 'guest') || null;
+  }
+  if (google_sub) {
+    const { data: g } = await client.from('portal_players').select('id').eq('google_sub', google_sub).limit(1);
+    if (g?.length) return { ok: false, status: 409, error: 'Esa cuenta de Google ya está registrada. Ingresá con tu usuario.' };
+  }
+  if (email) {
+    const { data: m } = await client.from('portal_players').select('id').ilike('email', email).limit(1);
+    if (m?.length) return { ok: false, status: 409, error: 'Ese mail ya tiene una cuenta. Ingresá con tu usuario o escribinos para recuperarla.' };
+  }
   if (!casino.configurado()) return { ok: false, status: 503, error: 'El registro automático no está disponible en este momento.' };
 
   const crypto = require('crypto');
@@ -49,32 +77,21 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
 
   const password_hash = await bcrypt.hash(password, 10);
   const settings = await bot.getSettings(client);
-  // Ruleta de la landing: bono de bienvenida en la primera carga.
-  let welcomePct = 0;
-  if (source === 'landing' && wheelOn(settings)) {
-    const { data: spin } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
-    welcomePct = Number(spin?.pct || 0);
-    // Raspadita de la landing: el bono es SIEMPRE el % de bienvenida del admin
-    // (landing_welcome_bonus_pct, hoy 20%). Ya no hay sorteo. Queda registrado en
-    // landing_spins (uno por WhatsApp) como antes, para la primera carga.
-    if (!welcomePct) {
-      welcomePct = Number(settings.landing_welcome_bonus_pct);
-      const { error: spinErr } = await client.from('landing_spins').insert({ whatsapp_last8: last8, pct: welcomePct, ref: ref || null });
-      if (spinErr) {
-        const { data: again } = await client.from('landing_spins').select('pct').eq('whatsapp_last8', last8).maybeSingle();
-        welcomePct = Number(again?.pct || welcomePct);
-      }
-    }
-  }
-  const fields = { username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits, status: 'active', signup_ref: ref || null, signup_source: source, welcome_bonus_pct: welcomePct || null };
+  const welcomePct = source === 'landing' ? await asignarBonoBienvenida(client, settings, whatsappDigits, ref) : 0;
+  const fields = {
+    username, casino_username: username, password_hash, full_name, whatsapp: whatsappDigits || null,
+    email: email || null, google_sub: google_sub || null, whatsapp_added_at: whatsappDigits ? new Date().toISOString() : null,
+    status: 'active', signup_ref: ref || null, signup_source: source, welcome_bonus_pct: welcomePct || null,
+  };
   const q = invitado
     ? client.from('portal_players').update(fields).eq('id', invitado.id).select().single()
     : client.from('portal_players').insert(fields).select().single();
   const { data: player, error } = await q;
   if (error) throw error;
 
+  const contacto = [whatsappDigits && `WhatsApp: ${whatsappDigits}`, email && `Mail: ${email}`, google_sub && '(con Google)'].filter(Boolean).join('\n');
   const chat = await bot.getOrCreateChat(client, player.id);
-  await bot.insertMessage(client, chat.id, 'player', `${intro}\nNombre: ${full_name}\nWhatsApp: ${whatsappDigits}`, { signup: true, source });
+  await bot.insertMessage(client, chat.id, 'player', `${intro}\nNombre: ${full_name}\n${contacto}`, { signup: true, source });
   await bot.touchChat(client, chat.id, 'player');
   const lineas = [
     `¡Bienvenido/a a CapiBet, ${full_name.split(' ')[0]}! 🎉`,
@@ -84,25 +101,41 @@ async function autoCrearCuenta(client, { full_name, whatsappDigits, source, ref,
     `🔑 Contraseña: ${password}`,
   ];
   if (settings?.casino_url) lineas.push(`🎰 Jugá acá: ${settings.casino_url}`);
-  if (welcomePct) lineas.push('', `🎁 Ganaste ${welcomePct}% extra en tu primera carga: se suma solo cuando cargues.`);
+  if (welcomePct) lineas.push('', `🎁 Tenés ${welcomePct}% extra en tu primera carga: se suma solo cuando cargues.`);
   else if (settings?.landing_bonus_text) lineas.push('', `🎁 ${settings.landing_bonus_text}`);
   lineas.push('', 'Para cargar fichas tocá 💰 Cargar acá en el chat. ¡Mucha suerte! 🍀');
   await bot.botSay(client, chat.id, lineas.join('\n'), { signup_welcome: true });
 
-  // Confirmación por WhatsApp (desde cualquier línea conectada del CRM). No frena el alta.
-  await casino.avisarWhatsApp({ whatsapp: whatsappDigits, full_name, username, password, casino_url: settings?.casino_url || null, bonus_pct: welcomePct || null, source })
-    .catch((e) => console.warn('signup: WhatsApp de confirmación no enviado:', e.message));
+  // Confirmación por WhatsApp (cualquier línea conectada del CRM) y/o por mail. No frena el alta.
+  if (whatsappDigits || email) {
+    await casino.avisarWhatsApp({ whatsapp: whatsappDigits || null, email: email || null, full_name, username, password, casino_url: settings?.casino_url || null, bonus_pct: welcomePct || null, source })
+      .catch((e) => console.warn('signup: confirmación no enviada:', e.message));
+  }
 
   return {
     ok: true, status: 201,
     body: {
       token: signToken(player),
-      player: { id: player.id, username, full_name, whatsapp: whatsappDigits, casino_username: username, balance: 0, status: 'active' },
+      player: { id: player.id, username, full_name, whatsapp: whatsappDigits || null, email: email || null, casino_username: username, balance: 0, status: 'active' },
       credentials: { username, password },
       casino_url: settings?.casino_url || null,
       welcome_pct: welcomePct || null,
+      // Landing: falta el WhatsApp para reclamar el bono.
+      needs_whatsapp: !whatsappDigits,
+      bonus_pct: wheelOn(settings) ? Number(settings.landing_welcome_bonus_pct) : null,
     },
   };
+}
+
+/** Valida el "Continuar con Google" (ID token de Google Identity Services). */
+async function verificarGoogle(credential) {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) throw Object.assign(new Error('El ingreso con Google no está configurado'), { status: 503 });
+  const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+  const t = await r.json().catch(() => null);
+  if (!r.ok || !t || t.aud !== clientId || !t.sub) throw Object.assign(new Error('No pudimos validar tu cuenta de Google. Probá de nuevo.'), { status: 401 });
+  if (String(t.email_verified) !== 'true') throw Object.assign(new Error('Tu mail de Google no está verificado'), { status: 401 });
+  return { sub: t.sub, email: String(t.email || '').toLowerCase(), name: String(t.name || t.given_name || '').trim() };
 }
 
 module.exports = async (req, res) => {
@@ -165,6 +198,8 @@ module.exports = async (req, res) => {
         bonus_text: settings?.landing_bonus_text || null,
         bonus_pct: wheelOn(settings) ? Number(settings.landing_welcome_bonus_pct) : null,
         wheel: wheelOn(settings) ? wheelPrizes(settings) : null,
+        // Público por diseño (es el client id del botón "Continuar con Google").
+        google_client_id: process.env.GOOGLE_CLIENT_ID || null,
       });
     } catch { return res.status(200).json({ bonus_text: null }); }
   }
@@ -203,15 +238,28 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).end();
     if (rateLimit(req, 3, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
     try {
-      const full_name = String(req.body?.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+      let full_name = String(req.body?.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
       const whatsappDigits = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      let email = String(req.body?.email || '').trim().toLowerCase().slice(0, 120);
+      let google_sub = null;
+      if (req.body?.google_credential) {
+        const g = await verificarGoogle(String(req.body.google_credential));
+        google_sub = g.sub; email = g.email; full_name = (g.name || email.split('@')[0]).slice(0, 60);
+      }
       if (full_name.length < 2) return res.status(400).json({ error: 'Poné tu nombre' });
-      if (whatsappDigits.length < 8 || whatsappDigits.length > 15) return res.status(400).json({ error: 'Poné un número de WhatsApp válido' });
+      if (!google_sub && email && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return res.status(400).json({ error: 'Poné un mail válido' });
+      if (!email && !google_sub && (whatsappDigits.length < 8 || whatsappDigits.length > 15)) return res.status(400).json({ error: 'Poné tu mail o tu WhatsApp' });
       const ref = String(req.body?.ref || '').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '').slice(0, 40) || null;
-      const r = await autoCrearCuenta(db(), { full_name, whatsappDigits, source: 'landing', ref, intro: '🆕 Me registré desde la página.' });
+      const r = await autoCrearCuenta(db(), {
+        full_name, whatsappDigits: whatsappDigits.length >= 8 ? whatsappDigits : null, email: email || null, google_sub,
+        source: 'landing', ref, intro: google_sub ? '🆕 Me registré desde la página (con Google).' : '🆕 Me registré desde la página.',
+      });
       if (!r.ok) return res.status(r.status).json({ error: r.error, existing: r.status === 409 || undefined });
       return res.status(201).json(r.body);
-    } catch (e) { console.error('signup', e); return res.status(500).json({ error: 'No pudimos crear tu cuenta. Probá de nuevo en un rato.' }); }
+    } catch (e) {
+      if (e.status) return res.status(e.status).json({ error: e.message });
+      console.error('signup', e); return res.status(500).json({ error: 'No pudimos crear tu cuenta. Probá de nuevo en un rato.' });
+    }
   }
 
   // ── "No tengo usuario" ─────────────────────────────────
@@ -280,7 +328,7 @@ module.exports = async (req, res) => {
     if (rateLimit(req, 4, 10 * 60000)) return res.status(429).json({ error: 'Ya lo reenviamos varias veces. Esperá unos minutos o escribinos por el chat.' });
     try {
       const casino = require('../_casino');
-      const { data: me } = await client.from('portal_players').select('id, username, full_name, whatsapp, password_hash, welcome_bonus_pct, signup_source').eq('id', claim.id).maybeSingle();
+      const { data: me } = await client.from('portal_players').select('id, username, full_name, whatsapp, email, password_hash, welcome_bonus_pct, signup_source, signup_ref').eq('id', claim.id).maybeSingle();
       if (!me) return res.status(404).json({ error: 'No encontramos tu cuenta' });
       const password = String(req.body?.password || '');
       if (!password || !(await bcrypt.compare(password, me.password_hash || ''))) return res.status(403).json({ error: 'No pudimos validar tu cuenta' });
@@ -289,14 +337,19 @@ module.exports = async (req, res) => {
       if (nuevo !== String(me.whatsapp || '').replace(/\D/g, '')) {
         const { data: otro } = await client.from('portal_players').select('id').ilike('whatsapp', `%${nuevo.slice(-8)}`).neq('id', me.id).neq('status', 'guest').limit(1);
         if (otro?.length) return res.status(409).json({ error: 'Ese WhatsApp ya está en otra cuenta. Escribinos por el chat y lo vemos.' });
-        await client.from('portal_players').update({ whatsapp: nuevo }).eq('id', me.id);
+        await client.from('portal_players').update({ whatsapp: nuevo, whatsapp_added_at: new Date().toISOString() }).eq('id', me.id);
       }
       const settings = await bot.getSettings(client);
+      // Primer WhatsApp de una cuenta hecha con mail/Google: ahí se asigna el bono.
+      if (!me.welcome_bonus_pct && me.signup_source === 'landing') {
+        const pct = await asignarBonoBienvenida(client, settings, nuevo, me.signup_ref);
+        if (pct) { await client.from('portal_players').update({ welcome_bonus_pct: pct }).eq('id', me.id); me.welcome_bonus_pct = pct; }
+      }
       await casino.avisarWhatsApp({
         whatsapp: nuevo, full_name: me.full_name, username: me.username, password,
         casino_url: settings?.casino_url || null, bonus_pct: me.welcome_bonus_pct || null, source: me.signup_source || 'landing',
       });
-      return res.status(200).json({ ok: true, whatsapp: nuevo });
+      return res.status(200).json({ ok: true, whatsapp: nuevo, welcome_pct: me.welcome_bonus_pct || null });
     } catch (e) { console.error('signup-resend', e); return res.status(502).json({ error: 'No pudimos reenviarlo ahora. Probá en un minuto o escribinos por el chat.' }); }
   }
 
