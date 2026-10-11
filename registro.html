@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>CapiBet · Tu cuenta gratis + 20% extra</title>
+<title>CapiBet · Tu cuenta gratis + bono de bienvenida</title>
 <meta name="description" content="Creá tu cuenta de CapiBet gratis en 1 minuto con tu nombre y tu WhatsApp. 20% extra en tu primera carga." />
 <meta name="theme-color" content="#050300" />
 <link rel="icon" href="/icons/icon-192.png" />
@@ -96,7 +96,7 @@
 
   <!-- 1) Registro: una sola promesa arriba, el formulario sin tener que bajar -->
   <section id="vista-registro">
-    <h1>Tu cuenta gratis<br>+ <em id="h-pct">20% extra</em><br>en tu primera carga</h1>
+    <h1>Tu cuenta gratis<br>+ <em>el bono de la raspadita</em><br>en tu primera carga</h1>
     <p class="proof" id="proof" hidden>🔥 Ya son <b id="proof-n"></b> jugadores en CapiBet</p>
 
     <div class="scratch" id="scratch" aria-label="Raspadita con tu bono de bienvenida">
@@ -178,7 +178,6 @@
   fetch('/api/player/landing').then(r => r.json()).then(j => {
     if (j && Number(j.bonus_pct) > 0) {
       bonoPct = Number(j.bonus_pct);
-      document.getElementById('h-pct').textContent = `${bonoPct}% extra`;
       document.getElementById('m-pct').textContent = bonoPct;
       document.getElementById('ok-pct').textContent = `${bonoPct}%`;
     }
