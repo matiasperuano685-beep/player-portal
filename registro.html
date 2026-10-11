@@ -76,6 +76,16 @@
   .ok-sub { color: var(--muted); font-size: 0.92rem; margin-top: 4px; }
   .wa-note { display: flex; gap: 8px; align-items: center; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35);
     color: #bbf7d0; border-radius: 12px; padding: 10px 12px; font-size: 0.86rem; margin: 14px 0; }
+  .wa-box { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); border-radius: 14px; padding: 12px; margin: 14px 0; }
+  .wa-box p { color: #bbf7d0; font-size: 0.92rem; line-height: 1.35; }
+  .wa-box b { color: #fff; }
+  .btn-wa { width: 100%; margin-top: 10px; background: none; border: 1px solid rgba(34,197,94,0.5); color: #86efac; border-radius: 10px;
+    padding: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .resend { margin-top: 10px; }
+  .resend input { margin-bottom: 8px; }
+  .resend .btn { font-size: 1.05rem; padding: 13px; animation: none; background: linear-gradient(135deg, #15803d, #22c55e); color: #fff; box-shadow: none; }
+  .resend-msg { font-size: 0.85rem; margin-top: 8px; }
+  .resend-msg.ok { color: #86efac; } .resend-msg.err { color: var(--error); }
   .cred { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--field); border: 1px solid var(--line);
     border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
   .cred small { display: block; color: var(--muted); font-size: 0.74rem; }
@@ -133,7 +143,17 @@
       <div class="ok-title">¡Tu cuenta está lista!</div>
       <div class="ok-sub">Guardá estos datos para entrar a jugar.</div>
     </div>
-    <div class="wa-note">📲 <span>También te los mandamos por <b>WhatsApp</b>.</span></div>
+    <div class="wa-box">
+      <p>📲 Te mandamos tus datos por <b>WhatsApp</b>. <b>Respondé ese mensaje para reclamar tu bono</b> 🎁</p>
+      <button class="btn-wa" id="btn-nollego" onclick="abrirReenvio()">No me llegó el WhatsApp</button>
+      <div class="resend" id="resend" hidden>
+        <label for="wa2">Revisá tu número y lo reenviamos</label>
+        <input id="wa2" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" />
+        <button class="btn" id="btn-reenviar" onclick="reenviar()">REENVIAR WHATSAPP</button>
+        <div class="resend-msg" id="resend-msg"></div>
+        <button class="btn-wa" onclick="irAlPortal(true)">💬 Hablar con soporte en el chat</button>
+      </div>
+    </div>
     <div class="card" style="margin-top:0">
       <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
       <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
@@ -160,6 +180,7 @@
   const PORTAL_URL = 'https://player-portal-self.vercel.app/';
   let sesion = null;
   let premio = 0;
+  let waIngresado = '';
   let segmentos = [];
 
   // Código de afiliado / campaña: ?ref=elnene (también ?a=, ?codigo= o utm_campaign).
@@ -210,6 +231,7 @@
         throw new Error(j.error || 'No pudimos crear tu cuenta. Probá de nuevo.');
       }
       sesion = j.token;
+      waIngresado = whatsapp;
       premio = Number(j.welcome_pct) || 0;
       document.getElementById('u').textContent = j.credentials.username;
       document.getElementById('p').textContent = j.credentials.password;
@@ -274,6 +296,40 @@
       document.getElementById('cta-card').hidden = false;
       document.getElementById('cta-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 4700);
+  }
+
+  // "No me llegó el WhatsApp": muestra el número para corregirlo y lo reenvía
+  // (sale por otra línea al azar). Si cambia el número, queda guardado en su cuenta.
+  function abrirReenvio() {
+    document.getElementById('wa2').value = waIngresado;
+    document.getElementById('resend').hidden = false;
+    document.getElementById('btn-nollego').hidden = true;
+    document.getElementById('wa2').focus();
+  }
+
+  async function reenviar() {
+    const btn = document.getElementById('btn-reenviar');
+    const msg = document.getElementById('resend-msg');
+    const whatsapp = document.getElementById('wa2').value.trim();
+    msg.className = 'resend-msg'; msg.textContent = '';
+    if (whatsapp.replace(/\D/g, '').length < 8) { msg.className = 'resend-msg err'; msg.textContent = 'Poné tu número con característica (ej: 11 2345 6789)'; return; }
+    btn.disabled = true; btn.textContent = 'REENVIANDO...';
+    try {
+      const r = await fetch('/api/player/signup-resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion}` },
+        body: JSON.stringify({ whatsapp, password: document.getElementById('p').textContent }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'No pudimos reenviarlo. Probá de nuevo.');
+      waIngresado = whatsapp;
+      msg.className = 'resend-msg ok';
+      msg.textContent = '✅ Listo, te lo reenviamos. Puede tardar un minuto. Si no llega, tocá "Hablar con soporte en el chat".';
+    } catch (e) {
+      msg.className = 'resend-msg err'; msg.textContent = e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = 'REENVIAR WHATSAPP';
+    }
   }
 
   function copiar(id, btn) {

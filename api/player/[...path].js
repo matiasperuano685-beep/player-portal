@@ -270,6 +270,35 @@ module.exports = async (req, res) => {
     return res.status(403).json({ error: 'Primero te creamos el usuario: escribinos por el chat.' });
   }
 
+  // ── "No me llegó el WhatsApp" (landing) ────────────────
+  // Reenvía la confirmación (sale por otra línea al azar). Si corrigió el número, se
+  // actualiza en su cuenta antes de mandar. Pide la contraseña que vio en pantalla para
+  // armar el mensaje (no se guarda en texto plano) y se valida contra la cuenta.
+  if (slug === 'signup-resend') {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (rateLimit(req, 4, 10 * 60000)) return res.status(429).json({ error: 'Ya lo reenviamos varias veces. Esperá unos minutos o escribinos por el chat.' });
+    try {
+      const casino = require('../_casino');
+      const { data: me } = await client.from('portal_players').select('id, username, full_name, whatsapp, password_hash, welcome_bonus_pct, signup_source').eq('id', claim.id).maybeSingle();
+      if (!me) return res.status(404).json({ error: 'No encontramos tu cuenta' });
+      const password = String(req.body?.password || '');
+      if (!password || !(await bcrypt.compare(password, me.password_hash || ''))) return res.status(403).json({ error: 'No pudimos validar tu cuenta' });
+      const nuevo = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      if (nuevo.length < 8 || nuevo.length > 15) return res.status(400).json({ error: 'Poné un número de WhatsApp válido, con característica' });
+      if (nuevo !== String(me.whatsapp || '').replace(/\D/g, '')) {
+        const { data: otro } = await client.from('portal_players').select('id').ilike('whatsapp', `%${nuevo.slice(-8)}`).neq('id', me.id).neq('status', 'guest').limit(1);
+        if (otro?.length) return res.status(409).json({ error: 'Ese WhatsApp ya está en otra cuenta. Escribinos por el chat y lo vemos.' });
+        await client.from('portal_players').update({ whatsapp: nuevo }).eq('id', me.id);
+      }
+      const settings = await bot.getSettings(client);
+      await casino.avisarWhatsApp({
+        whatsapp: nuevo, full_name: me.full_name, username: me.username, password,
+        casino_url: settings?.casino_url || null, bonus_pct: me.welcome_bonus_pct || null, source: me.signup_source || 'landing',
+      });
+      return res.status(200).json({ ok: true, whatsapp: nuevo });
+    } catch (e) { console.error('signup-resend', e); return res.status(502).json({ error: 'No pudimos reenviarlo ahora. Probá en un minuto o escribinos por el chat.' }); }
+  }
+
   // ── ME ────────────────────────────────────────────────
   if (slug === 'me') {
     try {
