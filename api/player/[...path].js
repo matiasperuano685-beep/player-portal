@@ -595,8 +595,14 @@ module.exports = async (req, res) => {
         const settings = await bot.getSettings(client);
         if (!isGuest && bot.botActive(settings, claim.username, chat)) {
           try {
-            replies = action
-              ? await bot.replyToAction(client, { chatId: chat.id, playerId: claim.id, action, settings })
+            // También si lo escribe a mano: "quiero cargar", "para cargar saldo", "retirar"...
+            const t = String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+            const escrito = !action && /^(hola )?(quiero |para |necesito )?(re)?cargar( saldo| fichas)?$/.test(t) ? 'cargar'
+              : !action && /^(hola )?(quiero |para |necesito )?retirar( saldo| fichas| mi premio)?$/.test(t) ? 'retirar'
+              : null;
+            const accion = action || escrito;
+            replies = accion
+              ? await bot.replyToAction(client, { chatId: chat.id, playerId: claim.id, action: accion, settings })
               : await bot.maybeWelcome(client, chat.id);
           } catch (e) { console.error('bot reply', e); }
         }

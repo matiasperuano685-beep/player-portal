@@ -1610,7 +1610,10 @@ async function chatWithdrawSubmit(id) {
 // Botones CARGAR / RETIRAR / SOPORTE. Si el bot está apagado, mandan el texto
 // de siempre para que un operador responda como hasta ahora.
 async function chatAction(action, fallbackText) {
-  if (!chatBotActive) { if (fallbackText) await chatQuickSend(fallbackText); return; }
+  // Siempre como acción: el servidor sabe si el bot está activo y, si lo está, responde al
+  // instante (CBU, etc.). Antes, si la app todavía no había leído el estado del bot (p. ej.
+  // el "Cargar" automático al llegar desde la landing), lo mandaba como texto común y el
+  // jugador esperaba a que un cajero contestara a mano.
   try {
     const r = await authFetch('/api/player/chat', { method: 'POST', body: JSON.stringify({ action }) });
     const j = await r.json();
