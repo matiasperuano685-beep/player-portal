@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>CapiBet · Creá tu cuenta gratis</title>
-<meta name="description" content="Creá tu cuenta de CapiBet gratis en 1 minuto: solo nombre y WhatsApp. Bono extra en tu primera carga." />
+<title>CapiBet · Tu cuenta gratis + 20% extra</title>
+<meta name="description" content="Creá tu cuenta de CapiBet gratis en 1 minuto con tu nombre y tu WhatsApp. 20% extra en tu primera carga." />
 <meta name="theme-color" content="#050300" />
 <link rel="icon" href="/icons/icon-192.png" />
+<link rel="preload" as="image" href="/icons/logo-capibet-pro.webp" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
@@ -22,185 +23,132 @@
   body {
     background: radial-gradient(120% 70% at 50% 0%, #2a1a04 0%, #0d0801 45%, var(--bg) 70%);
     color: var(--text); font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    min-height: 100vh; display: flex; justify-content: center; padding: 14px 16px 36px;
+    min-height: 100vh; display: flex; justify-content: center; padding: 10px 16px 36px;
   }
   main { width: 100%; max-width: 440px; display: flex; flex-direction: column; }
 
-  /* Marca */
-  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-  .brand img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--gold); object-fit: cover; }
-  .brand span { font-family: 'Oswald', sans-serif; font-size: 1.25rem; letter-spacing: 0.06em; }
-  .brand b { color: var(--gold); font-weight: 700; }
+  .logo { display: block; width: 150px; height: auto; margin: 0 auto 4px; }
+  h1 { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 2.1rem; line-height: 1.06; text-transform: uppercase; text-align: center; }
+  h1 em { font-style: normal; color: var(--gold-light); text-shadow: 0 0 18px rgba(245,158,11,0.45); }
+  .proof { margin-top: 8px; text-align: center; font-size: 0.86rem; color: var(--muted); }
+  .proof b { color: var(--gold-light); }
 
-  /* Lo que se tiene que entender en 5 segundos */
-  .badge { display: inline-block; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; color: #000;
-    background: linear-gradient(135deg, var(--gold), var(--gold-light)); border-radius: 999px; padding: 6px 12px; margin-bottom: 12px; }
-  h1 { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 2.35rem; line-height: 1.05; text-transform: uppercase; letter-spacing: 0.01em; }
-  h1 em { font-style: normal; color: var(--gold); }
-  .promo { margin-top: 12px; font-size: 1.12rem; font-weight: 700; color: var(--gold-light); }
-  .sub { margin-top: 8px; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
+  /* Raspadita dentro de la página (no tapa nada; es opcional) */
+  .scratch { position: relative; width: 100%; height: 92px; margin: 14px 0 0; border-radius: 16px; overflow: hidden;
+    border: 2px dashed rgba(245,158,11,0.6); user-select: none; -webkit-user-select: none; }
+  .prize { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: radial-gradient(circle, #3b2405, #120c02); }
+  .prize .pct { font-family: 'Oswald', sans-serif; font-size: 2.8rem; font-weight: 700; color: var(--gold); text-shadow: 0 0 20px rgba(245,158,11,0.5); }
+  .prize .txt { font-weight: 800; font-size: 0.9rem; line-height: 1.15; text-align: left; }
+  #scratch-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; transition: opacity .5s; }
+  .scratch-ok { display: none; text-align: center; color: #86efac; font-size: 0.85rem; font-weight: 700; margin-top: 6px; }
 
-  /* Logo: capibara con el cartel CAPIBET (PNG con fondo transparente) */
-  .logo-capi { display: block; width: 190px; height: auto; margin: 0 auto 6px; }
-  /* Botones e imágenes en estilo "pop-up de bono" (PNG sin fondo, ver CAPI/graficos_capibet.py) */
+  /* Formulario */
+  .card { margin-top: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.45); }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+  input { width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 12px; color: var(--text);
+    font-size: 1.05rem; padding: 14px; margin-bottom: 4px; outline: none; }
+  input::placeholder { color: #6f6656; }
+  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+  .hint { font-size: 0.76rem; color: var(--muted); margin-bottom: 12px; }
   .img-btn { display: block; width: 100%; background: none; border: none; padding: 0; cursor: pointer; transition: transform .12s, opacity .2s;
     animation: pulse 2.4s ease-in-out infinite; -webkit-tap-highlight-color: transparent; }
   .img-btn img { display: block; width: 100%; height: auto; pointer-events: none; }
   .img-btn:active { transform: scale(0.97); }
   .img-btn:disabled { opacity: 0.6; cursor: wait; animation: none; }
-  .btn-estado { text-align: center; font-size: 0.85rem; color: var(--gold-light); margin-top: 6px; min-height: 1.1em; }
-  .promo-img { display: block; width: 100%; max-width: 360px; height: auto; margin: 10px 0 2px; }
-  .modal-box .capi-top { position: absolute; left: 50%; top: -96px; transform: translateX(-50%); width: 124px; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); pointer-events: none; }
-  .modal-box { margin-top: 84px; padding-top: 38px; }
-
-  /* Formulario */
-  .card { margin-top: 18px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 16px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.45); }
-  label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
-  input { width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 12px; color: var(--text);
-    font-size: 1.05rem; padding: 15px 14px; margin-bottom: 14px; outline: none; }
-  input::placeholder { color: #6f6656; }
-  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
-  .btn { width: 100%; border: none; border-radius: 14px; padding: 17px; font-family: 'Oswald', sans-serif; font-size: 1.25rem;
-    letter-spacing: 0.06em; color: #000; cursor: pointer; background: linear-gradient(135deg, var(--gold-dark), var(--gold) 45%, var(--gold-light));
-    box-shadow: 0 8px 26px rgba(245,158,11,0.4); animation: pulse 2.4s ease-in-out infinite; }
-  .btn:disabled { opacity: 0.65; cursor: wait; animation: none; }
   @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.015); } }
-  @media (prefers-reduced-motion: reduce) { .btn { animation: none; } }
-  .btn-ghost { background: none; color: var(--gold); border: 1px solid var(--border); box-shadow: none; animation: none; margin-top: 10px; font-size: 1.05rem; }
-  .micro { margin-top: 10px; text-align: center; font-size: 0.8rem; color: var(--muted); }
-  .error { display: none; background: rgba(127,29,29,0.28); border: 1px solid #7f1d1d; color: var(--error); border-radius: 10px;
-    padding: 10px 12px; font-size: 0.9rem; margin-bottom: 14px; }
+  @media (prefers-reduced-motion: reduce) { .img-btn { animation: none; } }
+  .btn-estado { text-align: center; font-size: 0.85rem; color: var(--gold-light); min-height: 1.1em; }
+  .btn-ghost { width: 100%; background: none; color: var(--gold); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  .micro { margin-top: 4px; text-align: center; font-size: 0.78rem; color: var(--muted); }
+  .error { display: none; background: rgba(127,29,29,0.28); border: 1px solid #7f1d1d; color: var(--error); border-radius: 10px; padding: 10px 12px; font-size: 0.9rem; margin-bottom: 12px; }
 
-  /* Cómo funciona */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
-  .step { background: rgba(255,255,255,0.03); border: 1px solid #2a2010; border-radius: 14px; padding: 12px 8px; text-align: center; }
-  .step .ico { font-size: 1.4rem; }
-  .step p { margin-top: 6px; font-size: 0.78rem; color: var(--muted); line-height: 1.25; }
-  .step strong { color: var(--text); display: block; font-size: 0.82rem; }
-  .trust { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; font-size: 0.8rem; color: var(--muted); }
-  .trust span { border: 1px solid #2a2010; border-radius: 999px; padding: 6px 11px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .step { background: rgba(255,255,255,0.03); border: 1px solid #2a2010; border-radius: 14px; padding: 10px 6px; text-align: center; }
+  .step .ico { font-size: 1.3rem; }
+  .step p { margin-top: 4px; font-size: 0.76rem; color: var(--muted); line-height: 1.25; }
+  .step strong { color: var(--text); display: block; font-size: 0.8rem; }
 
-  /* Cuenta creada */
-  .ok-head { text-align: center; }
-  .ok-check { width: 58px; height: 58px; border-radius: 50%; background: rgba(34,197,94,0.15); border: 2px solid var(--ok);
-    display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 4px auto 10px; }
-  .ok-title { font-family: 'Oswald', sans-serif; font-size: 1.8rem; text-transform: uppercase; }
-  .ok-sub { color: var(--muted); font-size: 0.92rem; margin-top: 4px; }
-  .wa-note { display: flex; gap: 8px; align-items: center; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35);
-    color: #bbf7d0; border-radius: 12px; padding: 10px 12px; font-size: 0.86rem; margin: 14px 0; }
-  .wa-box { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); border-radius: 14px; padding: 12px; margin: 14px 0; }
-  .wa-box p { color: #bbf7d0; font-size: 0.92rem; line-height: 1.35; }
-  .wa-box b { color: #fff; }
-  .btn-wa { width: 100%; margin-top: 10px; background: none; border: 1px solid rgba(34,197,94,0.5); color: #86efac; border-radius: 10px;
-    padding: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  /* Cuenta creada: UNA acción principal (cargar) */
+  .ok-head { text-align: center; margin-top: 4px; }
+  .ok-title { font-family: 'Oswald', sans-serif; font-size: 1.9rem; text-transform: uppercase; line-height: 1.05; }
+  .ok-title em { font-style: normal; color: var(--gold-light); }
+  .ok-sub { color: var(--muted); font-size: 0.92rem; margin-top: 6px; }
+  .cta-wrap { margin-top: 14px; }
+  .cta-note { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
+  .cred { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--field); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .cred small { display: block; color: var(--muted); font-size: 0.72rem; }
+  .cred strong { font-size: 1.08rem; word-break: break-all; }
+  .copy { background: none; border: 1px solid var(--border); color: var(--gold); border-radius: 8px; padding: 7px 11px; font-size: 0.82rem; cursor: pointer; flex-shrink: 0; }
+  .card-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+  .wa-line { font-size: 0.85rem; color: #bbf7d0; margin-top: 6px; line-height: 1.4; }
+  .link { background: none; border: none; color: #86efac; text-decoration: underline; font-size: 0.85rem; cursor: pointer; padding: 0; }
   .resend { margin-top: 10px; }
-  .resend input { margin-bottom: 8px; }
-  .resend .btn { font-size: 1.05rem; padding: 13px; animation: none; background: linear-gradient(135deg, #15803d, #22c55e); color: #fff; box-shadow: none; }
+  .resend .btn-ghost { margin-top: 6px; }
   .resend-msg { font-size: 0.85rem; margin-top: 8px; }
   .resend-msg.ok { color: #86efac; } .resend-msg.err { color: var(--error); }
-  .cred { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--field); border: 1px solid var(--line);
-    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-  .cred small { display: block; color: var(--muted); font-size: 0.74rem; }
-  .cred strong { font-size: 1.15rem; letter-spacing: 0.02em; word-break: break-all; }
-  .copy { background: none; border: 1px solid var(--border); color: var(--gold); border-radius: 8px; padding: 7px 11px; font-size: 0.82rem; cursor: pointer; flex-shrink: 0; }
-  .casino-link { display: block; text-align: center; margin-top: 12px; color: var(--gold-light); font-size: 0.9rem; }
-
-  .won { border: 1px solid var(--gold); border-radius: 14px; padding: 12px; margin: 4px 0 12px; background: rgba(245,158,11,0.14);
-    font-weight: 800; color: var(--gold-light); text-align: center; font-size: 1.02rem; }
-
-  /* Raspadita de bienvenida (ventana al entrar). Debajo de la capa plateada está el premio. */
-  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.82); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal-box { width: 100%; max-width: 360px; background: linear-gradient(170deg, #241604, #0d0801); border: 1px solid var(--gold);
-    border-radius: 22px; padding: 22px 18px 18px; text-align: center; box-shadow: 0 0 60px rgba(245,158,11,0.35); position: relative; animation: pop .35s ease-out; }
-  @keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .modal-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
-  .modal-box h2 { font-family: 'Oswald', sans-serif; font-size: 1.6rem; text-transform: uppercase; line-height: 1.1; }
-  .modal-box .m-sub { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
-  .scratch { position: relative; width: 100%; max-width: 300px; aspect-ratio: 3 / 2; margin: 16px auto 14px; border-radius: 16px; overflow: hidden;
-    border: 2px dashed rgba(245,158,11,0.6); user-select: none; -webkit-user-select: none; }
-  .prize { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: radial-gradient(circle, #3b2405, #120c02); }
-  .prize .pct { font-family: 'Oswald', sans-serif; font-size: 4rem; font-weight: 700; color: var(--gold); line-height: 1; text-shadow: 0 0 20px rgba(245,158,11,0.5); }
-  .prize .txt { font-weight: 800; font-size: 0.95rem; letter-spacing: 0.04em; margin-top: 4px; }
-  #scratch-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; transition: opacity .5s; }
-  .scratch-hint { font-size: 0.82rem; color: var(--gold-light); }
 </style>
 </head>
 <body>
-<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
-  <div class="modal-box" id="scratch-step">
-    <img class="capi-top" src="/icons/capibara.png" alt="" width="124" height="113">
-    <button class="modal-close" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
-    <h2 id="m-title">🎁 Tenés un regalo</h2>
-    <p class="m-sub">Raspá con el dedo y descubrí tu bono de bienvenida</p>
-    <div class="scratch" id="scratch">
-      <div class="prize"><div class="pct"><span id="m-pct">20</span>%</div><div class="txt">EXTRA EN TU PRIMERA CARGA</div></div>
+<main>
+  <img class="logo" src="/icons/logo-capibet-pro.webp" alt="CapiBet" width="150" height="110" fetchpriority="high">
+
+  <!-- 1) Registro: una sola promesa arriba, el formulario sin tener que bajar -->
+  <section id="vista-registro">
+    <h1>Tu cuenta gratis<br>+ <em id="h-pct">20% extra</em><br>en tu primera carga</h1>
+    <p class="proof" id="proof" hidden>🔥 Ya son <b id="proof-n"></b> jugadores en CapiBet</p>
+
+    <div class="scratch" id="scratch" aria-label="Raspadita con tu bono de bienvenida">
+      <div class="prize"><div class="pct"><span id="m-pct">20</span>%</div><div class="txt">EXTRA EN TU<br>PRIMERA CARGA 🎁</div></div>
       <canvas id="scratch-canvas"></canvas>
     </div>
-    <p class="scratch-hint" id="scratch-hint">👆 Raspá acá</p>
-    <button class="img-btn" id="btn-reclamar" hidden onclick="cerrarRaspadita()"><img src="/icons/btn-reclamar.png" alt="Reclamar mi bono" width="480" height="118"></button>
-  </div>
-</div>
-<main>
-  <img class="logo-capi" src="/icons/logo-capibet-pro.png" alt="CapiBet" width="190" height="140">
-
-  <!-- 1) Registro: la idea entera arriba de todo, el formulario sin tener que bajar -->
-  <section id="vista-registro">
-    <div class="badge" id="badge">🎁 BONO DE BIENVENIDA</div>
-    <h1>Creá tu cuenta <em>gratis</em><br>y jugá en 1 minuto</h1>
-    <img class="promo-img" id="promo-img" src="/icons/badge-bono-20.png" alt="20% extra en tu primera carga" width="420" height="140">
-    <p class="promo" id="promo" hidden>20% extra en tu primera carga</p>
-    <p class="sub">Solo tu nombre y tu WhatsApp. Tu usuario y contraseña te llegan al instante por WhatsApp.</p>
+    <div class="scratch-ok" id="scratch-ok">✅ ¡Bono activado! Creá tu cuenta para usarlo</div>
 
     <div class="card">
       <div class="error" id="error"></div>
       <label for="name">Tu nombre</label>
       <input id="name" autocomplete="given-name" maxlength="60" placeholder="Ej: Juan" />
+      <div class="hint">Con tu nombre armamos tu usuario.</div>
       <label for="wa">Tu WhatsApp</label>
       <input id="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" onkeydown="if(event.key==='Enter')crear()" />
-      <button class="img-btn" id="btn" onclick="crear()"><img src="/icons/btn-crear.png" alt="Crear mi cuenta gratis" width="480" height="118"></button>
+      <div class="hint">Solo para mandarte tu usuario y contraseña. Nada de spam.</div>
+      <button class="img-btn" id="btn" onclick="crear()"><img src="/icons/btn-crear.webp" alt="Crear mi cuenta gratis" width="400" height="98"></button>
       <div class="btn-estado" id="btn-estado"></div>
-      <button class="btn btn-ghost" id="btn-login" hidden onclick="irAlPortal()">YA TENGO CUENTA · INGRESAR</button>
-      <p class="micro">🔒 Sin datos bancarios · Sin descargar nada</p>
+      <button class="btn-ghost" id="btn-login" hidden onclick="irAlPortal()">YA TENGO CUENTA · INGRESAR</button>
+      <p class="micro">🔒 Sin datos bancarios · Sin descargar nada · Atención 24/7</p>
     </div>
 
     <div class="steps">
       <div class="step"><div class="ico">✍️</div><p><strong>1. Registrate</strong>Nombre y WhatsApp</p></div>
-      <div class="step"><div class="ico">📲</div><p><strong>2. Recibí tu usuario</strong>Al instante</p></div>
-      <div class="step"><div class="ico">🎰</div><p><strong>3. Cargá y jugá</strong>Con tu bono</p></div>
+      <div class="step"><div class="ico">💰</div><p><strong>2. Cargá</strong>Desde el chat</p></div>
+      <div class="step"><div class="ico">🎁</div><p><strong>3. +20%</strong>Se suma solo</p></div>
     </div>
-    <div class="trust"><span>⚡ Cargas al instante</span><span>💸 Retiros rápidos</span><span>🕐 Atención 24/7</span></div>
   </section>
 
-  <!-- 2) Cuenta creada: datos + bono + ir a cargar -->
+  <!-- 2) Cuenta creada: el siguiente paso es cargar (ahí se cobra el bono) -->
   <section id="vista-ok" hidden>
     <div class="ok-head">
-      <div class="ok-check">✓</div>
-      <div class="ok-title">¡Tu cuenta está lista!</div>
-      <div class="ok-sub">Guardá estos datos para entrar a jugar.</div>
+      <div class="ok-title">¡Listo<span id="ok-nombre"></span>!<br>Tu <em id="ok-pct">20%</em> te espera</div>
+      <div class="ok-sub">Hacé tu primera carga y el bono se suma solo.</div>
     </div>
-    <div class="wa-box">
-      <p>📲 Te mandamos tus datos por <b>WhatsApp</b>. <b>Respondé ese mensaje para reclamar tu bono</b> 🎁</p>
-      <button class="btn-wa" id="btn-nollego" onclick="abrirReenvio()">No me llegó el WhatsApp</button>
+    <div class="cta-wrap">
+      <button class="img-btn" onclick="irAlPortal(true, 'cargar')"><img src="/icons/btn-cobrar.webp" alt="Cargar y cobrar mi bono" width="400" height="98"></button>
+      <div class="cta-note" id="cta-note">Te abrimos el chat con los datos para transferir.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Tus datos para entrar a jugar</div>
+      <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
+      <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
+      <div class="wa-line">📲 También te los mandamos por WhatsApp. <button class="link" id="btn-nollego" onclick="abrirReenvio()">¿No te llegó?</button></div>
       <div class="resend" id="resend" hidden>
         <label for="wa2">Revisá tu número y lo reenviamos</label>
         <input id="wa2" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" />
-        <button class="btn" id="btn-reenviar" onclick="reenviar()">REENVIAR WHATSAPP</button>
+        <button class="btn-ghost" id="btn-reenviar" onclick="reenviar()">REENVIAR WHATSAPP</button>
         <div class="resend-msg" id="resend-msg"></div>
-        <button class="btn-wa" onclick="irAlPortal(true)">💬 Hablar con soporte en el chat</button>
+        <button class="btn-ghost" onclick="irAlPortal(true)">💬 Hablar con soporte en el chat</button>
       </div>
-    </div>
-    <div class="card" style="margin-top:0">
-      <div class="cred"><div><small>Usuario</small><strong id="u"></strong></div><button class="copy" onclick="copiar('u', this)">Copiar</button></div>
-      <div class="cred"><div><small>Contraseña</small><strong id="p"></strong></div><button class="copy" onclick="copiar('p', this)">Copiar</button></div>
-    </div>
-
-    <div class="card" id="cta-card">
-      <div class="won" id="won-ok" hidden></div>
-      <button class="img-btn" onclick="irAlPortal(true)"><img src="/icons/btn-jugar.png" alt="Cargar y empezar a jugar" width="486" height="118"></button>
-      <a class="casino-link" id="casino-link" target="_blank" rel="noopener" hidden>Ir directo al casino</a>
     </div>
   </section>
 </main>
@@ -208,7 +156,6 @@
   // El portal "oficial" de los jugadores; la sesión viaja en el hash (#t=…).
   const PORTAL_URL = 'https://player-portal-self.vercel.app/';
   let sesion = null;
-  let premio = 0;
   let waIngresado = '';
   let bonoPct = 20;
 
@@ -227,22 +174,26 @@
   }
   const REF = codigoCampana();
 
-  // % del bono (el de bienvenida del admin, hoy 20%) para el titular y la raspadita.
+  // Datos reales para la página: % del bono (admin), jugadores activos y mínimo de carga.
   fetch('/api/player/landing').then(r => r.json()).then(j => {
     if (j && Number(j.bonus_pct) > 0) {
       bonoPct = Number(j.bonus_pct);
-      document.getElementById('promo').textContent = `${bonoPct}% extra en tu primera carga`;
-      if (bonoPct !== 20) { document.getElementById('promo-img').hidden = true; document.getElementById('promo').hidden = false; }
+      document.getElementById('h-pct').textContent = `${bonoPct}% extra`;
       document.getElementById('m-pct').textContent = bonoPct;
-    } else if (j && j.bonus_text) {
-      document.getElementById('promo').textContent = j.bonus_text;
-      document.getElementById('promo-img').hidden = true; document.getElementById('promo').hidden = false;
+      document.getElementById('ok-pct').textContent = `${bonoPct}%`;
+    }
+    if (j && j.players_count) {
+      document.getElementById('proof-n').textContent = `+${Number(j.players_count).toLocaleString('es-AR')}`;
+      document.getElementById('proof').hidden = false;
+    }
+    if (j && j.min_deposit) {
+      document.getElementById('cta-note').textContent = `Carga mínima $${Number(j.min_deposit).toLocaleString('es-AR')}. Te abrimos el chat con los datos para transferir.`;
     }
   }).catch(() => {});
 
-  // ── Raspadita ──
-  // Capa plateada en un canvas; se "borra" con el dedo o el mouse. Al destapar ~45% se
-  // muestra entera y aparece "Reclamar mi bono". Siempre es el mismo premio (no hay sorteo).
+  // ── Raspadita (en la página, opcional) ──
+  // Capa plateada en un canvas que se "borra" con el dedo. Al destapar ~45% se muestra
+  // el bono y se lleva el foco al formulario. Siempre es el mismo premio (no hay sorteo).
   (function raspadita() {
     const cv = document.getElementById('scratch-canvas');
     const ctx = cv.getContext('2d');
@@ -254,9 +205,8 @@
       const g = ctx.createLinearGradient(0, 0, r.width, r.height);
       g.addColorStop(0, '#d6d3d1'); g.addColorStop(0.5, '#a8a29e'); g.addColorStop(1, '#e7e5e4');
       ctx.fillStyle = g; ctx.fillRect(0, 0, r.width, r.height);
-      ctx.fillStyle = '#57534e'; ctx.font = '700 20px Oswald, sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('RASPÁ ACÁ', r.width / 2, r.height / 2 - 4);
-      ctx.font = '600 13px Inter, sans-serif'; ctx.fillText('🎁 tu bono de bienvenida', r.width / 2, r.height / 2 + 18);
+      ctx.fillStyle = '#57534e'; ctx.textAlign = 'center';
+      ctx.font = '700 19px Oswald, sans-serif'; ctx.fillText('👆 RASPÁ ACÁ Y MIRÁ TU REGALO', r.width / 2, r.height / 2 + 7);
       ctx.globalCompositeOperation = 'destination-out';
     }
     function punto(e) {
@@ -268,11 +218,10 @@
       if (!rascando || listo) return;
       e.preventDefault();
       const { x, y } = punto(e);
-      // Trazo continuo desde el punto anterior: un dedo rápido manda pocos eventos.
-      ctx.lineWidth = 44; ctx.lineCap = 'round';
+      ctx.lineWidth = 40; ctx.lineCap = 'round';
       ctx.beginPath();
       if (ultimo) { ctx.moveTo(ultimo.x, ultimo.y); ctx.lineTo(x, y); ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill();
       ultimo = { x, y };
       if (++trazos % 6 === 0) revisar();
     }
@@ -287,11 +236,9 @@
       listo = true;
       cv.style.opacity = '0';
       setTimeout(() => cv.remove(), 500);
-      document.getElementById('scratch-hint').hidden = true;
-      document.getElementById('btn-reclamar').hidden = false;
-      document.getElementById('m-title').textContent = '🎉 ¡Ganaste!';
-      document.querySelector('.m-sub').textContent = 'Creá tu cuenta y se suma solo a tu primera carga.';
+      document.getElementById('scratch-ok').style.display = 'block';
       if (navigator.vibrate) navigator.vibrate(80);
+      setTimeout(() => document.getElementById('name').focus(), 600);
     }
     const ini = (e) => { rascando = true; ultimo = null; borrar(e); };
     const fin = () => { rascando = false; ultimo = null; if (!listo) revisar(); };
@@ -299,13 +246,6 @@
     cv.addEventListener('touchstart', ini, { passive: false }); cv.addEventListener('touchmove', borrar, { passive: false }); cv.addEventListener('touchend', fin);
     requestAnimationFrame(pintar);
   })();
-
-
-  function cerrarRaspadita() {
-    const m = document.getElementById('modal');
-    if (m) m.remove();
-    document.getElementById('name').focus();
-  }
 
   function mostrarError(msg) {
     const e = document.getElementById('error');
@@ -331,15 +271,10 @@
       }
       sesion = j.token;
       waIngresado = whatsapp;
-      premio = Number(j.welcome_pct) || 0;
       document.getElementById('u').textContent = j.credentials.username;
       document.getElementById('p').textContent = j.credentials.password;
-      if (j.casino_url) { const a = document.getElementById('casino-link'); a.href = j.casino_url; a.hidden = false; }
-      if (premio) {
-        const wonOk = document.getElementById('won-ok');
-        wonOk.textContent = `🎁 Tu bono: ${premio}% extra en tu primera carga. Se suma solo cuando cargues.`;
-        wonOk.hidden = false;
-      }
+      document.getElementById('ok-nombre').textContent = `, ${full_name.split(' ')[0]}`;
+      if (Number(j.welcome_pct) > 0) document.getElementById('ok-pct').textContent = `${Number(j.welcome_pct)}%`;
       document.getElementById('vista-registro').hidden = true;
       document.getElementById('vista-ok').hidden = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -350,7 +285,7 @@
     }
   }
 
-  // "No me llegó el WhatsApp": muestra el número para corregirlo y lo reenvía
+  // "¿No te llegó?": muestra el número para corregirlo y lo reenvía
   // (sale por otra línea al azar). Si cambia el número, queda guardado en su cuenta.
   function abrirReenvio() {
     document.getElementById('wa2').value = waIngresado;
@@ -376,7 +311,7 @@
       if (!r.ok) throw new Error(j.error || 'No pudimos reenviarlo. Probá de nuevo.');
       waIngresado = whatsapp;
       msg.className = 'resend-msg ok';
-      msg.textContent = '✅ Listo, te lo reenviamos. Puede tardar un minuto. Si no llega, tocá "Hablar con soporte en el chat".';
+      msg.textContent = '✅ Listo, te lo reenviamos. Puede tardar un minuto.';
     } catch (e) {
       msg.className = 'resend-msg err'; msg.textContent = e.message;
     } finally {
@@ -393,11 +328,12 @@
 
   // Al portal con la sesión y los datos para que el celular ofrezca guardarlos.
   // Van en el hash: no llegan a ningún servidor y el portal los borra al leerlos.
-  function irAlPortal(conSesion) {
+  // destino 'cargar' = abre el chat ya pidiendo los datos para transferir.
+  function irAlPortal(conSesion, destino) {
     if (!(conSesion && sesion)) { location.href = PORTAL_URL; return; }
     const u = encodeURIComponent(document.getElementById('u').textContent);
     const k = encodeURIComponent(document.getElementById('p').textContent);
-    location.href = `${PORTAL_URL}#t=${encodeURIComponent(sesion)}&p=chat&u=${u}&k=${k}`;
+    location.href = `${PORTAL_URL}#t=${encodeURIComponent(sesion)}&p=${destino === 'cargar' ? 'cargar' : 'chat'}&u=${u}&k=${k}`;
   }
 </script>
 </body>

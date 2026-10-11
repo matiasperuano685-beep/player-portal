@@ -251,6 +251,10 @@ module.exports = async (req, res) => {
         bonus_text: settings?.landing_bonus_text || null,
         bonus_pct: wheelOn(settings) ? Number(settings.landing_welcome_bonus_pct) : null,
         wheel: wheelOn(settings) ? wheelPrizes(settings) : null,
+        // Prueba social REAL (jugadores activos, redondeado para abajo) y mínimo de carga.
+        players_count: await db().from('portal_players').select('id', { count: 'exact', head: true }).eq('status', 'active')
+          .then(({ count }) => (count >= 100 ? Math.floor(count / 50) * 50 : null)).catch(() => null),
+        min_deposit: Number(settings?.min_deposit) || null,
       });
     } catch { return res.status(200).json({ bonus_text: null }); }
   }

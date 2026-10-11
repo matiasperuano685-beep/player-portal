@@ -884,7 +884,9 @@
   const m = location.hash.match(/[#&]t=([^&]+)/);
   if (m) {
     try { localStorage.setItem('portal_token', decodeURIComponent(m[1])); } catch (e) {}
-    window.__openChatOnStart = /[#&]p=chat/.test(location.hash);
+    window.__openChatOnStart = /[#&]p=(chat|cargar)/.test(location.hash);
+    // p=cargar: viene de "Cargar y cobrar mi 20%" de la landing → abre el chat ya en "Cargar".
+    window.__autoCargar = /[#&]p=cargar/.test(location.hash);
     // Usuario y contraseña recién creados: se ofrecen al gestor de contraseñas
     // del celular (así, si un día se cierra la sesión, el login se completa solo).
     const u = location.hash.match(/[#&]u=([^&]+)/);
@@ -1044,6 +1046,7 @@ function showApp() {
   registerPush();
   // Invitado (todavía sin usuario): directo al chat.
   if (currentPlayer?.status === 'guest' || window.__openChatOnStart) { window.__openChatOnStart = false; goPage('chat'); }
+  if (window.__autoCargar && currentPlayer?.status !== 'guest') { window.__autoCargar = false; setTimeout(() => chatAction('cargar', '💰 Quiero cargar saldo'), 900); }
 }
 
 // ─── VERIFICAR WHATSAPP ──────────────────────────────────
