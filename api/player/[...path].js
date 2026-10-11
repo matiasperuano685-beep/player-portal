@@ -595,11 +595,20 @@ module.exports = async (req, res) => {
         const settings = await bot.getSettings(client);
         if (!isGuest && bot.botActive(settings, claim.username, chat)) {
           try {
-            // También si lo escribe a mano: "quiero cargar", "para cargar saldo", "retirar"...
+            // También si lo escribe a mano: cualquier mensaje sobre cargar (CVU, CBU, alias,
+            // cuenta, carga, depósito, transferencia, fichas) o sobre retirar.
             const t = String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
-            const escrito = !action && /^(hola )?(quiero |para |necesito )?(re)?cargar( saldo| fichas)?$/.test(t) ? 'cargar'
-              : !action && /^(hola )?(quiero |para |necesito )?retirar( saldo| fichas| mi premio)?$/.test(t) ? 'retirar'
-              : null;
+            let escrito = null;
+            if (!action && !/^https?:/i.test(String(text || ''))) {
+              if (/\bretir/.test(t)) escrito = 'retirar';
+              else if (/\b(re)?carg|\bcbu\b|\bcvu\b|\balias\b|\bcuenta\b|\bdeposit|\btransfer|\bficha/.test(t)) escrito = 'cargar';
+            }
+            if (escrito) {
+              // Si el bot ya respondió hace menos de 2 minutos, no repetir los datos.
+              const { data: recien } = await client.from('portal_chat_messages').select('id').eq('chat_id', chat.id)
+                .eq('sender', 'operator').gte('created_at', new Date(Date.now() - 2 * 60000).toISOString()).limit(1);
+              if (recien?.length) escrito = null;
+            }
             const accion = action || escrito;
             replies = accion
               ? await bot.replyToAction(client, { chatId: chat.id, playerId: claim.id, action: accion, settings })
