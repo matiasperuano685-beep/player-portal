@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { db, signToken, verifyToken, cors, rateLimit } = require('../_lib');
 const bot = require('../_bot');
+const { normalizePhone } = require('../_phone');
 
 // Alta automática de un jugador: crea el usuario en el casino y en el portal y el bot
 // le manda las credenciales por el chat. La usan la landing (registro.capiok.me) y
@@ -50,8 +51,8 @@ function descifrarClave(valor) {
 // cuenta) y le manda por WhatsApp su usuario y contraseña. Se puede repetir con otro
 // número si no le llegó. Devuelve { ok, status, error } o { ok:true, whatsapp, enviado }.
 async function verificarWhatsapp(client, playerId, numeroCrudo) {
-  const numero = String(numeroCrudo || '').replace(/\D/g, '');
-  if (numero.length < 8 || numero.length > 15) return { ok: false, status: 400, error: 'Poné tu número con característica (ej: 11 2345 6789)' };
+  const numero = normalizePhone(numeroCrudo);
+  if (!numero) return { ok: false, status: 400, error: 'Revisá tu número de WhatsApp: poné la característica sin 0 y sin 15 (ej: 11 2345 6789)' };
   const { data: me } = await client.from('portal_players').select('id, username, full_name, whatsapp, password_enc, signup_source').eq('id', playerId).maybeSingle();
   if (!me) return { ok: false, status: 404, error: 'No encontramos tu cuenta' };
   const { data: otro } = await client.from('portal_players').select('id').ilike('whatsapp', `%${numero.slice(-8)}`).neq('id', me.id).neq('status', 'guest').limit(1);
@@ -295,9 +296,10 @@ module.exports = async (req, res) => {
     try {
       // Nombre + WhatsApp: al crear la cuenta le llega el WhatsApp con su usuario y contraseña.
       const full_name = String(req.body?.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
-      const whatsappDigits = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      // Se guarda normalizado (549 + característica + número) para poder escribirle por WhatsApp.
+      const whatsappDigits = normalizePhone(req.body?.whatsapp);
       if (full_name.length < 2) return res.status(400).json({ error: 'Poné tu nombre' });
-      if (whatsappDigits.length < 8 || whatsappDigits.length > 15) return res.status(400).json({ error: 'Poné tu número de WhatsApp con característica (ej: 11 2345 6789)' });
+      if (!whatsappDigits) return res.status(400).json({ error: 'Revisá tu número de WhatsApp: poné la característica sin 0 y sin 15 (ej: 11 2345 6789)' });
       const ref = String(req.body?.ref || '').toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '').slice(0, 40) || null;
       const r = await autoCrearCuenta(db(), {
         full_name, whatsappDigits: whatsappDigits.length >= 8 && whatsappDigits.length <= 15 ? whatsappDigits : null,
@@ -320,9 +322,9 @@ module.exports = async (req, res) => {
     if (rateLimit(req, 3, 60000)) return res.status(429).json({ error: 'Demasiados intentos. Esperá un momento.' });
     try {
       const full_name = String(req.body?.full_name || '').trim().slice(0, 60);
-      const whatsappDigits = String(req.body?.whatsapp || '').replace(/\D/g, '');
+      const whatsappDigits = normalizePhone(req.body?.whatsapp);
       if (full_name.length < 2) return res.status(400).json({ error: 'Poné tu nombre' });
-      if (whatsappDigits.length < 8 || whatsappDigits.length > 15) return res.status(400).json({ error: 'Poné un número de WhatsApp válido' });
+      if (!whatsappDigits) return res.status(400).json({ error: 'Revisá tu número de WhatsApp: poné la característica sin 0 y sin 15 (ej: 11 2345 6789)' });
       const client = db();
       try {
         const auto = await autoCrearCuenta(client, { full_name, whatsappDigits, source: 'portal', intro: '🆕 Me registré desde el portal ("No tengo usuario").' });
