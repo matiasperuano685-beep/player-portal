@@ -40,6 +40,11 @@
   .promo { margin-top: 12px; font-size: 1.12rem; font-weight: 700; color: var(--gold-light); }
   .sub { margin-top: 8px; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
 
+  /* Logo: capibara con el cartel CAPIBET (PNG con fondo transparente) */
+  .logo-capi { display: block; width: 128px; height: auto; margin: 0 auto 12px; filter: drop-shadow(0 8px 18px rgba(245,158,11,0.25)); }
+  .modal-box .capi-top { position: absolute; left: 50%; top: -96px; transform: translateX(-50%); width: 124px; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); pointer-events: none; }
+  .modal-box { margin-top: 84px; padding-top: 38px; }
+
   /* Formulario */
   .card { margin-top: 18px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 16px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.45); }
@@ -118,6 +123,7 @@
 <body>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
   <div class="modal-box">
+    <img class="capi-top" src="/icons/capibara.png" alt="" width="124" height="113">
     <button class="modal-close" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
     <h2 id="m-title">🎁 Tenés un regalo</h2>
     <p class="m-sub">Raspá con el dedo y descubrí tu bono de bienvenida</p>
@@ -130,7 +136,7 @@
   </div>
 </div>
 <main>
-  <header class="brand"><img src="/icons/icon-192.png" alt="" onerror="this.remove()"><span>Capi<b>Bet</b></span></header>
+  <img class="logo-capi" src="/icons/capibara.png" alt="CapiBet" width="128" height="116">
 
   <!-- 1) Registro: la idea entera arriba de todo, el formulario sin tener que bajar -->
   <section id="vista-registro">
