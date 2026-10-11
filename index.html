@@ -571,6 +571,36 @@
       <div class="chat-cta-arrow">›</div>
     </div>
 
+    <!-- VERIFICAR WHATSAPP (se oculta cuando ya verificó) -->
+    <div id="wa-verify-banner" style="display:none;margin-top:12px;background:linear-gradient(135deg,#052e16,#0b3b1f);border:1px solid rgba(34,197,94,0.45);border-radius:12px;padding:14px 16px;cursor:pointer" onclick="abrirVerificarWa()">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.5rem">📲</div>
+        <div style="flex:1">
+          <div style="font-size:0.9rem;font-weight:700;color:#86efac">Verificá tu WhatsApp</div>
+          <div style="font-size:0.75rem;color:#bbf7d0;margin-top:2px">Te mandamos tu usuario y contraseña por WhatsApp</div>
+        </div>
+        <div style="font-size:0.8rem;color:#86efac;font-weight:700">Verificar →</div>
+      </div>
+    </div>
+
+    <div id="wa-verify-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:flex-end;justify-content:center" onclick="if(event.target===this)cerrarVerificarWa()">
+      <div style="background:#0d0801;border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;border-top:2px solid #22c55e">
+        <div style="font-size:1.1rem;font-weight:700;color:#86efac;margin-bottom:6px">📲 Verificá tu WhatsApp</div>
+        <div id="wa-v-help" style="color:#d6d3d1;font-size:0.85rem;line-height:1.5;margin-bottom:12px">Escribí tu número y te mandamos por WhatsApp tu usuario y contraseña para que los tengas siempre a mano.</div>
+        <div id="wa-v-form">
+          <input id="wa-v-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 11 2345 6789" style="width:100%;padding:14px;border-radius:10px;border:1px solid #3a2c12;background:#050300;color:#fff;font-size:1rem;margin-bottom:10px" onkeydown="if(event.key==='Enter')enviarVerificarWa()">
+          <button id="wa-v-btn" onclick="enviarVerificarWa()" style="width:100%;padding:14px;background:#22c55e;color:#000;font-weight:700;border:none;border-radius:10px;font-size:1rem;cursor:pointer">ENVIAR A MI WHATSAPP</button>
+        </div>
+        <div id="wa-v-ok" style="display:none">
+          <div id="wa-v-ok-text" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);color:#bbf7d0;border-radius:10px;padding:12px;font-size:0.88rem;line-height:1.45"></div>
+          <button onclick="cambiarNumeroWa()" style="margin-top:10px;width:100%;padding:12px;background:none;color:#86efac;font-weight:600;border:1px solid rgba(34,197,94,0.5);border-radius:10px;font-size:0.9rem;cursor:pointer">No me llegó · cambiar número</button>
+          <button onclick="cerrarVerificarWa();goPage('chat')" style="margin-top:8px;width:100%;padding:12px;background:none;color:var(--gold);font-weight:600;border:1px solid rgba(245,158,11,0.35);border-radius:10px;font-size:0.9rem;cursor:pointer">💬 Hablar con soporte en el chat</button>
+        </div>
+        <div id="wa-v-err" style="display:none;margin-top:10px;color:#fca5a5;font-size:0.85rem"></div>
+        <button onclick="cerrarVerificarWa()" style="margin-top:12px;width:100%;padding:10px;background:none;color:#a8a29e;border:none;font-size:0.85rem;cursor:pointer">Cerrar</button>
+      </div>
+    </div>
+
     <!-- BANNER NOTIFICACIONES -->
     <div id="notif-banner" style="display:none;margin-top:12px;background:#1c1000;border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 16px;cursor:pointer" onclick="handleNotifBanner()">
       <div style="display:flex;align-items:center;gap:12px">
@@ -1005,6 +1035,7 @@ function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   renderHome();
+  actualizarAvisoWa();
   populateDeposit();
   populateWithdraw();
   populateBank();
@@ -1013,6 +1044,55 @@ function showApp() {
   registerPush();
   // Invitado (todavía sin usuario): directo al chat.
   if (currentPlayer?.status === 'guest' || window.__openChatOnStart) { window.__openChatOnStart = false; goPage('chat'); }
+}
+
+// ─── VERIFICAR WHATSAPP ──────────────────────────────────
+// Le mandamos usuario y contraseña a su WhatsApp. Si no le llega, puede cambiar el número
+// y reenviarlo. El aviso del inicio desaparece cuando ya verificó.
+function actualizarAvisoWa() {
+  const b = document.getElementById('wa-verify-banner');
+  if (!b) return;
+  const pendiente = currentPlayer && currentPlayer.status !== 'guest' && !currentPlayer.whatsapp_verified_at;
+  b.style.display = pendiente ? 'block' : 'none';
+}
+function abrirVerificarWa() {
+  document.getElementById('wa-v-input').value = currentPlayer?.whatsapp || '';
+  document.getElementById('wa-v-form').style.display = 'block';
+  document.getElementById('wa-v-ok').style.display = 'none';
+  document.getElementById('wa-v-err').style.display = 'none';
+  document.getElementById('wa-verify-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('wa-v-input').focus(), 200);
+}
+function cerrarVerificarWa() { document.getElementById('wa-verify-modal').style.display = 'none'; }
+function cambiarNumeroWa() {
+  document.getElementById('wa-v-ok').style.display = 'none';
+  document.getElementById('wa-v-form').style.display = 'block';
+  document.getElementById('wa-v-help').textContent = 'Revisá tu número (con característica) y lo reenviamos.';
+  document.getElementById('wa-v-input').focus();
+}
+async function enviarVerificarWa() {
+  const btn = document.getElementById('wa-v-btn');
+  const err = document.getElementById('wa-v-err');
+  const whatsapp = document.getElementById('wa-v-input').value.trim();
+  err.style.display = 'none';
+  if (whatsapp.replace(/\D/g, '').length < 8) { err.textContent = 'Poné tu número con característica (ej: 11 2345 6789)'; err.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'ENVIANDO...';
+  try {
+    const r = await authFetch('/api/player/whatsapp-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ whatsapp }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'No pudimos mandarlo. Probá de nuevo.');
+    if (currentPlayer) { currentPlayer.whatsapp = j.whatsapp; currentPlayer.whatsapp_verified_at = new Date().toISOString(); }
+    document.getElementById('wa-v-ok-text').textContent = j.enviado
+      ? `✅ Te mandamos tu usuario y contraseña al WhatsApp ${j.whatsapp}. Puede tardar un minuto.`
+      : `✅ Guardamos tu WhatsApp ${j.whatsapp}. En un rato te escribimos por ahí con tus datos.`;
+    document.getElementById('wa-v-form').style.display = 'none';
+    document.getElementById('wa-v-ok').style.display = 'block';
+    actualizarAvisoWa();
+  } catch (e) {
+    err.textContent = e.message; err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'ENVIAR A MI WHATSAPP';
+  }
 }
 
 async function init() {

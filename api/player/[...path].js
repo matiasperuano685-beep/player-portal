@@ -46,11 +46,33 @@ function descifrarClave(valor) {
   } catch { return null; }
 }
 
+// Verificación de WhatsApp (botón del portal y chat): guarda el número (si no es de otra
+// cuenta) y le manda por WhatsApp su usuario y contraseña. Se puede repetir con otro
+// número si no le llegó. Devuelve { ok, status, error } o { ok:true, whatsapp, enviado }.
+async function verificarWhatsapp(client, playerId, numeroCrudo) {
+  const numero = String(numeroCrudo || '').replace(/\D/g, '');
+  if (numero.length < 8 || numero.length > 15) return { ok: false, status: 400, error: 'Poné tu número con característica (ej: 11 2345 6789)' };
+  const { data: me } = await client.from('portal_players').select('id, username, full_name, whatsapp, password_enc, signup_source').eq('id', playerId).maybeSingle();
+  if (!me) return { ok: false, status: 404, error: 'No encontramos tu cuenta' };
+  const { data: otro } = await client.from('portal_players').select('id').ilike('whatsapp', `%${numero.slice(-8)}`).neq('id', me.id).neq('status', 'guest').limit(1);
+  if (otro?.length) return { ok: false, status: 409, error: 'Ese WhatsApp ya está en otra cuenta. Si es tuyo, escribinos por el chat y lo resolvemos.' };
+  const ahora = new Date().toISOString();
+  await client.from('portal_players').update({ whatsapp: numero, whatsapp_added_at: me.whatsapp ? undefined : ahora, whatsapp_verified_at: ahora }).eq('id', me.id);
+  const settings = await bot.getSettings(client);
+  const clave = descifrarClave(me.password_enc) || 'la que usás para entrar al portal';
+  let enviado = true;
+  await require('../_casino').avisarWhatsApp({
+    whatsapp: numero, full_name: me.full_name, username: me.username, password: clave,
+    casino_url: settings?.casino_url || null, source: me.signup_source || 'portal', verify: true,
+  }).catch((e) => { enviado = false; console.warn('verificar WhatsApp: no enviado:', e.message); });
+  return { ok: true, whatsapp: numero, enviado };
+}
+
 // Después de una carga, si el jugador todavía no dejó su WhatsApp, el bot se lo pide
 // en el chat (él responde con el número y le llegan usuario y contraseña por WhatsApp).
 async function pedirWhatsappSiFalta(client, playerId, chatId) {
-  const { data: p } = await client.from('portal_players').select('whatsapp').eq('id', playerId).maybeSingle();
-  if (!p || p.whatsapp) return null;
+  const { data: p } = await client.from('portal_players').select('whatsapp_verified_at, whatsapp_verify_asked_at').eq('id', playerId).maybeSingle();
+  if (!p || p.whatsapp_verified_at || p.whatsapp_verify_asked_at) return null; // ya verificó o ya se le pidió
   await client.from('portal_players').update({ whatsapp_verify_asked_at: new Date().toISOString() }).eq('id', playerId);
   return bot.botSay(client, chatId,
     '📲 Verificá tu WhatsApp por acá: escribí tu número (ej: 11 2345 6789) y te mandamos tu usuario y contraseña por WhatsApp.',
@@ -184,7 +206,11 @@ module.exports = async (req, res) => {
       if (!valid) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       const token = signToken(player);
       // Actualizar último login (sin await para no demorar la respuesta)
-      client.from('portal_players').update({ last_login_at: new Date().toISOString() }).eq('id', player.id).then(() => {});
+      // Cuentas viejas: la contraseña (que el jugador acaba de escribir y es válida) queda
+      // cifrada para poder mandársela por WhatsApp cuando verifique su número.
+      const upd = { last_login_at: new Date().toISOString() };
+      if (!player.password_enc) upd.password_enc = cifrarClave(password);
+      client.from('portal_players').update(upd).eq('id', player.id).then(() => {});
       return res.status(200).json({ token, player: { id: player.id, username: player.username, full_name: player.full_name, whatsapp: player.whatsapp, casino_username: player.casino_username, balance: player.balance } });
     } catch { return res.status(500).json({ error: 'Error interno' }); }
   }
@@ -370,10 +396,21 @@ module.exports = async (req, res) => {
     } catch (e) { console.error('signup-resend', e); return res.status(502).json({ error: 'No pudimos reenviarlo ahora. Probá en un minuto o escribinos por el chat.' }); }
   }
 
+  // ── "Verificá tu WhatsApp" (botón del portal) ─────────
+  if (slug === 'whatsapp-verify') {
+    if (req.method !== 'POST') return res.status(405).end();
+    if (rateLimit(req, 5, 10 * 60000)) return res.status(429).json({ error: 'Ya lo mandamos varias veces. Esperá unos minutos o escribinos por el chat.' });
+    try {
+      const r = await verificarWhatsapp(client, claim.id, req.body?.whatsapp);
+      if (!r.ok) return res.status(r.status).json({ error: r.error });
+      return res.status(200).json(r);
+    } catch (e) { console.error('whatsapp-verify', e); return res.status(500).json({ error: 'No pudimos mandarlo. Probá en un minuto.' }); }
+  }
+
   // ── ME ────────────────────────────────────────────────
   if (slug === 'me') {
     try {
-      const { data: player } = await client.from('portal_players').select('id, username, full_name, whatsapp, casino_username, balance, status').eq('id', claim.id).single();
+      const { data: player } = await client.from('portal_players').select('id, username, full_name, whatsapp, whatsapp_verified_at, casino_username, balance, status').eq('id', claim.id).single();
       const { data: bank } = await client.from('portal_bank_accounts').select('*').eq('player_id', claim.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
       const { data: settings } = await client.from('portal_settings').select('whatsapp_number, casino_url, min_deposit, min_withdrawal, bank_cbu, bank_alias, bank_name, bank_account_name').limit(1).maybeSingle();
       return res.status(200).json({ player, bank, settings });
@@ -536,27 +573,19 @@ module.exports = async (req, res) => {
         // "Verificá tu WhatsApp por acá": el jugador sin WhatsApp manda su número.
         const soloNumero = !action && /^[+\d\s().-]{8,22}$/.test(text) ? text.replace(/\D/g, '') : '';
         if (soloNumero.length >= 8 && soloNumero.length <= 15) {
-          const { data: me } = await client.from('portal_players').select('id, username, full_name, whatsapp, password_enc, welcome_bonus_pct, signup_source').eq('id', claim.id).maybeSingle();
-          if (me && !me.whatsapp) {
-            const { data: otro } = await client.from('portal_players').select('id').ilike('whatsapp', `%${soloNumero.slice(-8)}`).neq('id', me.id).neq('status', 'guest').limit(1);
-            if (otro?.length) {
-              replies.push(await bot.botSay(client, chat.id, '⚠️ Ese WhatsApp ya está en otra cuenta. Si es tuyo, escribinos acá y lo resolvemos.', { type: 'wa_verify_dup' }));
-            } else {
-              await client.from('portal_players').update({ whatsapp: soloNumero, whatsapp_added_at: new Date().toISOString() }).eq('id', me.id);
-              const settings = await bot.getSettings(client);
-              const clave = descifrarClave(me.password_enc) || '(la que te dimos al registrarte)';
-              let enviado = true;
-              await require('../_casino').avisarWhatsApp({
-                whatsapp: soloNumero, full_name: me.full_name, username: me.username, password: clave,
-                casino_url: settings?.casino_url || null, source: me.signup_source || 'landing', verify: true,
-              }).catch((e) => { enviado = false; console.warn('chat: WhatsApp de verificación no enviado:', e.message); });
-              replies.push(await bot.botSay(client, chat.id, enviado
-                ? `✅ ¡Listo! Te mandamos tu usuario y contraseña al WhatsApp ${soloNumero}. Puede tardar un minuto.`
-                : '✅ Guardamos tu WhatsApp. En un rato te escribimos por ahí con tus datos.', { type: 'wa_verified' }));
-            }
+          const { data: yo } = await client.from('portal_players').select('whatsapp_verified_at, whatsapp_verify_asked_at').eq('id', claim.id).maybeSingle();
+          // Solo si el bot se lo pidió (después de cargar) y todavía no verificó.
+          // (y hasta 30 min después de verificar, por si no le llegó y manda otro número).
+          const reciente = yo?.whatsapp_verified_at && Date.now() - Date.parse(yo.whatsapp_verified_at) < 30 * 60000;
+          if (yo && yo.whatsapp_verify_asked_at && (!yo.whatsapp_verified_at || reciente)) {
+            const r = await verificarWhatsapp(client, claim.id, soloNumero);
+            replies.push(await bot.botSay(client, chat.id, !r.ok ? `⚠️ ${r.error}`
+              : r.enviado ? `✅ ¡Listo! Te mandamos tu usuario y contraseña al WhatsApp ${r.whatsapp}. Puede tardar un minuto. Si no te llega, mandame otro número.`
+              : '✅ Guardamos tu WhatsApp. En un rato te escribimos por ahí con tus datos.', { type: r.ok ? 'wa_verified' : 'wa_verify_error' }));
             return res.status(201).json({ ok: true, message: msg, replies });
           }
         }
+
         const settings = await bot.getSettings(client);
         if (!isGuest && bot.botActive(settings, claim.username, chat)) {
           try {
