@@ -50,10 +50,6 @@
   .img-btn:disabled { opacity: 0.6; cursor: wait; animation: none; }
   .btn-estado { text-align: center; font-size: 0.85rem; color: var(--gold-light); margin-top: 6px; min-height: 1.1em; }
   .promo-img { display: block; width: 100%; max-width: 360px; height: auto; margin: 10px 0 2px; }
-  .modal-x { position: absolute; top: 18px; right: 18px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(0,0,0,0.55);
-    color: #fff; font-size: 1.5rem; cursor: pointer; z-index: 2; }
-  .banner-step { cursor: pointer; animation: pop .35s ease-out; }
-  .banner-step img { display: block; width: 100%; max-width: 440px; height: auto; margin: 0 auto; animation: pulse 2.4s ease-in-out infinite; }
   .modal-box .capi-top { position: absolute; left: 50%; top: -96px; transform: translateX(-50%); width: 124px; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); pointer-events: none; }
   .modal-box { margin-top: 84px; padding-top: 38px; }
 
@@ -134,11 +130,7 @@
 </head>
 <body>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
-  <button class="modal-x" id="banner-x" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
-  <div class="banner-step" id="banner-step" onclick="abrirRaspadita()">
-    <img src="/icons/banner-premio.png" alt="CapiBet: click acá y reclamá tu premio" width="522" height="165">
-  </div>
-  <div class="modal-box" id="scratch-step" hidden>
+  <div class="modal-box" id="scratch-step">
     <img class="capi-top" src="/icons/capibara.png" alt="" width="124" height="113">
     <button class="modal-close" onclick="cerrarRaspadita()" aria-label="Cerrar">×</button>
     <h2 id="m-title">🎁 Tenés un regalo</h2>
@@ -305,15 +297,9 @@
     const fin = () => { rascando = false; ultimo = null; if (!listo) revisar(); };
     cv.addEventListener('mousedown', ini); cv.addEventListener('mousemove', borrar); window.addEventListener('mouseup', fin);
     cv.addEventListener('touchstart', ini, { passive: false }); cv.addEventListener('touchmove', borrar, { passive: false }); cv.addEventListener('touchend', fin);
-    window.__pintarRaspadita = pintar;
+    requestAnimationFrame(pintar);
   })();
 
-  function abrirRaspadita() {
-    document.getElementById('banner-step').hidden = true;
-    document.getElementById('banner-x').hidden = true;
-    document.getElementById('scratch-step').hidden = false;
-    requestAnimationFrame(() => window.__pintarRaspadita && window.__pintarRaspadita());
-  }
 
   function cerrarRaspadita() {
     const m = document.getElementById('modal');
