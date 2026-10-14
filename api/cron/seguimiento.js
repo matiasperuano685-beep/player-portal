@@ -37,18 +37,20 @@ const bonoPendiente = (p) => Number(p.welcome_bonus_pct) > 0 && !p.welcome_bonus
 // la usan para pedirle al jugador su cuenta para un retiro.
 const PASA_DATOS = /\b\d{22}\b/;
 
+// El jugador ya recibió usuario y contraseña con el WhatsApp del alta: los recordatorios no
+// los repiten (se veía como un mensaje duplicado) y lo mandan a la PLATAFORMA (chat del
+// portal), que es donde se carga y se cobra el bono — no a responder el WhatsApp.
+const PORTAL_URL = process.env.PORTAL_PUBLIC_URL || 'https://player-portal-self.vercel.app';
+
 function textoRegistro(p, settings, segundo) {
   const nombre = primerNombre(p);
-  const clave = descifrarClave(p.password_enc);
   const bono = bonoPendiente(p);
-  const l = segundo
-    ? [`¡Hola${nombre ? ' ' + nombre : ''}! 👋 Te escribimos de *CapiBet*.`, bono ? `Tu *${bono}% extra* en la primera carga sigue disponible 🎁` : 'Tu cuenta ya está lista para jugar 🎰']
-    : [`¡Hola${nombre ? ' ' + nombre : ''}! 👋 Te escribimos de *CapiBet*. Tu cuenta ya está lista:`];
-  l.push('', `👤 Usuario: *${p.username}*`);
-  l.push(clave ? `🔑 Contraseña: *${clave}*` : '🔑 Si no te acordás la contraseña, respondé este mensaje y te la pasamos.');
-  if (settings?.casino_url) l.push(`🎰 Jugá acá: ${settings.casino_url}`);
-  if (!segundo && bono) l.push('', `🎁 Tenés *${bono}% extra* en tu primera carga.`);
-  l.push('', '👉 *Respondé este mensaje* y te pasamos los datos para cargar fichas 💰');
+  const l = [segundo
+    ? `¡Hola${nombre ? ' ' + nombre : ''}! 👋 Último recordatorio de *CapiBet*.`
+    : `¡Hola${nombre ? ' ' + nombre : ''}! 👋 ¿Ya hiciste tu primera carga en *CapiBet*?`];
+  l.push(bono ? `🎁 Tu *${bono}% extra* en la primera carga te está esperando.` : '🎰 Tu cuenta ya está lista para jugar.');
+  l.push('', `👉 Entrá a la plataforma con tu usuario *${p.username}* y escribinos por el chat para cargar:`, `🔗 ${PORTAL_URL}`);
+  l.push('', 'Si no te acordás la contraseña, pedila por el chat de la plataforma.');
   return l.join('\n');
 }
 
@@ -56,7 +58,7 @@ function textoCbu(p) {
   const bono = bonoPendiente(p);
   return [
     `¿Pudiste hacer la transferencia${primerNombre(p) ? ', ' + primerNombre(p) : ''}? 🙌`,
-    'Cuando la hagas, mandanos el comprobante por acá y te acreditamos las fichas al toque.',
+    `Cuando la hagas, mandanos el comprobante por el chat de la plataforma y te acreditamos las fichas al toque: ${PORTAL_URL}`,
     bono ? `🎁 Acordate que tu primera carga tiene *${bono}% extra*.` : null,
     'Si tuviste algún problema para transferir, escribinos y te ayudamos.',
   ].filter(Boolean).join('\n');
